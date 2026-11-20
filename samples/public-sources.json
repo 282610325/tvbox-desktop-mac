@@ -1,7 +1,7 @@
 {
   "format": "tvbox-desktop/1",
   "name": "公开可用源（苹果CMS 采集站）",
-  "note": "实测存活的公开采集接口，全部是标准苹果CMS v10 的 /api.php/provide/vod。判断标准有三条：列表接口有数据、带 wd 的搜索有结果、详情能解析出剧集地址。这类站点随时可能失效，失效后在「影视源」页点测试就能看出来，删掉即可。",
+  "note": "2026-11-20 实测存活的公开采集接口，全部是标准苹果CMS v10 的 /api.php/provide/vod。判断标准：列表接口有数据、带 wd 的搜索有结果、详情能解析出剧集地址、至少一条线路能拉到 m3u8。这类站点随时可能失效，失效后在「影视源」页点测试就能看出来，删掉即可。",
   "sites": [
     {
       "key": "ffzy",
@@ -36,6 +36,55 @@
       "name": "素博资源",
       "type": "cms",
       "api": "https://subocaiji.com/api.php/provide/vod",
+      "searchable": 1
+    },
+    {
+      "key": "hongniu",
+      "name": "红牛资源",
+      "type": "cms",
+      "api": "https://www.hongniuzy2.com/api.php/provide/vod",
+      "searchable": 1
+    },
+    {
+      "key": "hhzy",
+      "name": "豪华资源",
+      "type": "cms",
+      "api": "https://hhzyapi.com/api.php/provide/vod",
+      "searchable": 1
+    },
+    {
+      "key": "wujin",
+      "name": "无尽资源",
+      "type": "cms",
+      "api": "https://api.wujinapi.com/api.php/provide/vod",
+      "searchable": 1
+    },
+    {
+      "key": "modu",
+      "name": "魔都资源",
+      "type": "cms",
+      "api": "https://www.mdzyapi.com/api.php/provide/vod",
+      "searchable": 1
+    },
+    {
+      "key": "zy360",
+      "name": "360资源",
+      "type": "cms",
+      "api": "https://360zy.com/api.php/provide/vod",
+      "searchable": 1
+    },
+    {
+      "key": "dyttzyw",
+      "name": "电影天堂（新）",
+      "type": "cms",
+      "api": "http://dyttzyw.com/api.php/provide/vod",
+      "searchable": 1
+    },
+    {
+      "key": "taohua",
+      "name": "桃花资源",
+      "type": "cms",
+      "api": "https://thzy1.me/api.php/provide/vod",
       "searchable": 1
     }
   ],
