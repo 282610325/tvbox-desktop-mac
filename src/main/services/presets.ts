@@ -41,13 +41,13 @@ export interface SourcePreset {
 const PUBLIC_CMS: SourcePreset = {
   id: 'public-cms',
   name: '公开可用源（苹果CMS 采集站）',
-  desc: '实测存活的 5 个公开采集接口 + 2 个公开直播源。这类源随时可能失效，失效后在「影视源」「电视直播」页一看便知。',
-  siteCount: 5,
-  liveCount: 2,
+  desc: '实测存活的 12 个公开采集接口 + 1 个公开直播源（2026-11-20 复测）。这类源随时可能失效，失效后在「影视源」「电视直播」页一看便知。',
+  siteCount: 12,
+  liveCount: 1,
   config: {
     format: 'tvbox-desktop/1',
     name: '公开可用源（苹果CMS 采集站）',
-    note: '实测存活的公开采集接口，全部是标准苹果CMS v10 的 /api.php/provide/vod。判断标准有三条：列表接口有数据、带 wd 的搜索有结果、详情能解析出剧集地址。直播源一 txt 一 m3u，用来覆盖两种解析格式。',
+    note: '实测存活的公开采集接口，全部是标准苹果CMS v10 的 /api.php/provide/vod。判断标准：列表接口有数据、带 wd 的搜索有结果、详情能解析出剧集地址、至少一条线路能拉到 m3u8。接口随时可能失效，失效后在「影视源」页点「测试」即可看出来。',
     sites: [
       {
         key: 'ffzy',
@@ -82,6 +82,57 @@ const PUBLIC_CMS: SourcePreset = {
         name: '素博资源',
         type: 'cms',
         api: 'https://subocaiji.com/api.php/provide/vod',
+        searchable: 1
+      },
+      // 下面 7 个来自 GitHub 公开 TVBox 配置的候选池，2026-11-20 逐个验证过：
+      // 搜索「庆余年」有结果、详情有剧集、至少一条线路的 m3u8 能直接 200 拉取。
+      {
+        key: 'hongniu',
+        name: '红牛资源',
+        type: 'cms',
+        api: 'https://www.hongniuzy2.com/api.php/provide/vod',
+        searchable: 1
+      },
+      {
+        key: 'hhzy',
+        name: '豪华资源',
+        type: 'cms',
+        api: 'https://hhzyapi.com/api.php/provide/vod',
+        searchable: 1
+      },
+      {
+        key: 'wujin',
+        name: '无尽资源',
+        type: 'cms',
+        api: 'https://api.wujinapi.com/api.php/provide/vod',
+        searchable: 1
+      },
+      {
+        key: 'modu',
+        name: '魔都资源',
+        type: 'cms',
+        api: 'https://www.mdzyapi.com/api.php/provide/vod',
+        searchable: 1
+      },
+      {
+        key: 'zy360',
+        name: '360资源',
+        type: 'cms',
+        api: 'https://360zy.com/api.php/provide/vod',
+        searchable: 1
+      },
+      {
+        key: 'dyttzyw',
+        name: '电影天堂（新）',
+        type: 'cms',
+        api: 'http://dyttzyw.com/api.php/provide/vod',
+        searchable: 1
+      },
+      {
+        key: 'taohua',
+        name: '桃花资源',
+        type: 'cms',
+        api: 'https://thzy1.me/api.php/provide/vod',
         searchable: 1
       }
     ],
