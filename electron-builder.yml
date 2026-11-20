@@ -1,0 +1,30 @@
+appId: com.tvbox.desktop
+productName: TVBox Desktop
+copyright: Copyright © 2025
+
+directories:
+  output: release
+  buildResources: build
+
+# 只打包构建产物，源码与开发依赖不进安装包
+files:
+  - out/**/*
+  - package.json
+
+# macOS 目标：zip 由 electron-builder 产出，dmg 由 scripts/make-dmg.mjs 用 hdiutil 生成
+mac:
+  target:
+    - target: zip
+      arch: [x64, arm64]
+  category: public.app-category.entertainment
+  icon: build/icon.icns
+  artifactName: ${productName}-${version}-${arch}.${ext}
+  minimumSystemVersion: "12.0"
+  # 没有 Apple Developer 证书：不做签名与公证，装完手动放行即可
+  identity: null
+  hardenedRuntime: false
+  gatekeeperAssess: false
+
+# 国内网络下 builder / Electron 二进制走镜像
+electronDownload:
+  mirror: https://npmmirror.com/mirrors/electron/
