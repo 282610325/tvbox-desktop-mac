@@ -3,6 +3,7 @@ import { isHttpUrl, isRoomUrl, roomPlatform } from '@shared/liveUrl'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { EmptyState } from '@/components/EmptyState'
+import { ExternalPlayerButton } from '@/components/ExternalPlayerButton'
 import { Icon } from '@/components/icons'
 import { useApp } from '@/store/useApp'
 import { createArt } from '@/utils/artplayer'
@@ -265,15 +266,6 @@ export function Live(): JSX.Element {
     stageWrapRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
   }, [pickSeq])
 
-  const openExternal = useCallback(async (): Promise<void> => {
-    if (!picked || !url) return
-    try {
-      await window.api.player.open(url, picked.name)
-    } catch (err) {
-      notify(`打开外部播放器失败：${(err as Error).message}`, 'danger')
-    }
-  }, [picked, url, notify])
-
   const copyUrl = useCallback(async (): Promise<void> => {
     if (!url) return
     await navigator.clipboard.writeText(url)
@@ -448,15 +440,11 @@ export function Live(): JSX.Element {
                     </span>
                   ) : null}
                   <span className="grow" />
-                  <button
-                    type="button"
+                  <ExternalPlayerButton
+                    url={url}
+                    title={picked?.name ?? ''}
                     className="btn btn-ghost btn-sm"
-                    disabled={!url}
-                    onClick={() => void openExternal()}
-                  >
-                    <Icon name="external" size={13} />
-                    外部播放器
-                  </button>
+                  />
                   <button
                     type="button"
                     className="btn btn-ghost btn-sm"

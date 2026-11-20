@@ -18,6 +18,7 @@ import type {
   LiveResolved,
   LiveHealth,
   PlayerInfo,
+  PlayTarget,
   ParseInfo,
   ParseResult,
   ParseTestResult,
@@ -122,8 +123,25 @@ const api = {
 
   player: {
     detect: (): Promise<PlayerInfo[]> => ipcRenderer.invoke(IPC.playerDetect),
-    open: (url: string, title: string): Promise<{ player: string; args: string[] }> =>
-      ipcRenderer.invoke(IPC.playerOpen, url, title)
+    open: (
+      url: string,
+      title: string,
+      /** 指定本机播放器路径；不传则按偏好自动挑一个 */
+      playerPath?: string
+    ): Promise<{ player: string; args: string[] }> =>
+      ipcRenderer.invoke(IPC.playerOpen, url, title, playerPath),
+    /** 打开 / 复用唯一的播放器窗口 */
+    openWindow: (target: PlayTarget): Promise<void> =>
+      ipcRenderer.invoke(IPC.playerOpenWindow, target),
+    closeWindow: (): Promise<void> => ipcRenderer.invoke(IPC.playerCloseWindow),
+    /** 播放器窗口里监听主窗口发来的「切换视频」 */
+    onNavigate: (cb: (target: PlayTarget) => void): (() => void) => {
+      const listener = (_e: unknown, target: PlayTarget): void => cb(target)
+      ipcRenderer.on(IPC.playerNavigate, listener)
+      return () => {
+        ipcRenderer.removeListener(IPC.playerNavigate, listener)
+      }
+    }
   },
 
   parse: {

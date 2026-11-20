@@ -38,8 +38,20 @@ function candidates(): Candidate[] {
       paths: [...inApps('mpv.app'), join('/opt/homebrew/bin', 'mpv'), join('/usr/local/bin', 'mpv'), join('/usr/bin', 'mpv')]
     },
     {
+      name: 'sPlayer',
+      paths: [...inApps('sPlayerFree.app'), ...inApps('sPlayer.app')]
+    },
+    {
+      name: 'nPlayer',
+      paths: inApps('nPlayer.app')
+    },
+    {
       name: 'Infuse',
       paths: inApps('Infuse.app')
+    },
+    {
+      name: 'VidHub',
+      paths: inApps('VidHub.app')
     },
     {
       name: 'Movist Pro',
@@ -61,7 +73,10 @@ export const DEFAULT_PREFER = [
   'IINA',
   'VLC',
   'mpv',
+  'sPlayer',
+  'nPlayer',
   'Infuse',
+  'VidHub',
   'Movist Pro',
   'Elmedia Player',
   'QuickTime Player'
@@ -133,13 +148,24 @@ export interface OpenPlayerResult {
   args: string[]
 }
 
-/** 调用外部播放器打开一个地址 */
-export async function openInPlayer(rawUrl: string, title = ''): Promise<OpenPlayerResult> {
+/** 调用外部播放器打开一个地址；playerPath 由用户在播放器菜单里指定 */
+export async function openInPlayer(
+  rawUrl: string,
+  title = '',
+  playerPath?: string
+): Promise<OpenPlayerResult> {
   const url = (rawUrl ?? '').trim()
   if (!/^(https?|rtmp|rtsp|file):/i.test(url)) {
     throw new Error('播放地址不是受支持的协议')
   }
-  const command = await resolvePlayer()
+
+  let command: string | null
+  if (playerPath?.trim()) {
+    command = resolveCommand(playerPath.trim())
+    if (!command) throw new Error(`指定的播放器不存在：${playerPath}`)
+  } else {
+    command = await resolvePlayer()
+  }
   if (!command) {
     throw new Error('没有找到可用的外部播放器，请在「设置」里手动指定播放器路径')
   }

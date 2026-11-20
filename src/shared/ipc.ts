@@ -49,6 +49,11 @@ export const IPC = {
 
   playerDetect: 'player:detect',
   playerOpen: 'player:open',
+  /** 打开 / 复用唯一的播放器窗口 */
+  playerOpenWindow: 'player:open-window',
+  playerCloseWindow: 'player:close-window',
+  /** 主进程 → 播放器窗口：切换正在播放的视频 */
+  playerNavigate: 'player:navigate',
 
   parseList: 'parse:list',
   parseResolve: 'parse:resolve',

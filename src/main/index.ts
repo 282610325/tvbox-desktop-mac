@@ -10,6 +10,7 @@ import type {
   AppSettings,
   FavoriteItem,
   HistoryItem,
+  PlayTarget,
   SearchOptions,
   SearchResponse
 } from '@shared/types'
@@ -99,6 +100,8 @@ function redirectUserData(): void {
 redirectUserData()
 
 let mainWindow: BrowserWindow | null = null
+/** 全局唯一的播放器窗口：主窗口继续浏览，点新视频只切换它的内容 */
+let playerWindow: BrowserWindow | null = null
 
 /**
  * macOS 的菜单栏是应用的一部分：没有它，Cmd+C / Cmd+V / Cmd+Q 这些系统快捷键
@@ -173,6 +176,71 @@ async function createWindow(): Promise<void> {
   } else {
     void mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
+}
+
+function playHash(target: PlayTarget): string {
+  return `/play/${encodeURIComponent(target.siteKey)}/${encodeURIComponent(target.vodId)}/${target.lineIndex}/${target.epIndex}`
+}
+
+function loadPlayerWindow(win: BrowserWindow, target: PlayTarget): Promise<void> {
+  const hash = playHash(target)
+  const devUrl = process.env['ELECTRON_RENDERER_URL']
+  if (devUrl) return win.loadURL(`${devUrl}?player=1#${hash}`)
+  return win.loadFile(join(__dirname, '../renderer/index.html'), {
+    query: { player: '1' },
+    hash
+  })
+}
+
+/**
+ * 打开或复用播放器窗口。
+ * 窗口只有一个：主窗口继续搜索/浏览，点另一个视频时通过 IPC 让播放器窗口换片。
+ */
+async function openPlayerWindow(target: PlayTarget): Promise<void> {
+  const clean: PlayTarget = {
+    siteKey: String(target?.siteKey ?? ''),
+    vodId: String(target?.vodId ?? ''),
+    lineIndex: Math.max(0, Number(target?.lineIndex) || 0),
+    epIndex: Math.max(0, Number(target?.epIndex) || 0)
+  }
+  if (!clean.siteKey || !clean.vodId) throw new Error('播放目标不完整')
+
+  if (playerWindow && !playerWindow.isDestroyed()) {
+    if (playerWindow.webContents.isLoading()) {
+      await loadPlayerWindow(playerWindow, clean)
+    } else {
+      playerWindow.webContents.send(IPC.playerNavigate, clean)
+    }
+    if (playerWindow.isMinimized()) playerWindow.restore()
+    playerWindow.show()
+    playerWindow.focus()
+    return
+  }
+
+  const win = new BrowserWindow({
+    width: 1100,
+    height: 720,
+    minWidth: 760,
+    minHeight: 480,
+    show: false,
+    title: 'TVBox 播放器',
+    backgroundColor: '#ffffff',
+    autoHideMenuBar: true,
+    webPreferences: {
+      preload: join(__dirname, '../preload/index.js'),
+      sandbox: false,
+      contextIsolation: true,
+      nodeIntegration: false,
+      webSecurity: false
+    }
+  })
+  playerWindow = win
+  win.on('closed', () => {
+    if (playerWindow === win) playerWindow = null
+  })
+  win.on('ready-to-show', () => win.show())
+  await loadPlayerWindow(win, clean)
+  win.show()
 }
 
 function registerIpc(): void {
@@ -311,7 +379,13 @@ function registerIpc(): void {
   ipcMain.handle(IPC.libraryClearHistory, () => clearHistory())
 
   ipcMain.handle(IPC.playerDetect, () => detectPlayers())
-  ipcMain.handle(IPC.playerOpen, (_e, url: string, title: string) => openInPlayer(url, title))
+  ipcMain.handle(IPC.playerOpen, (_e, url: string, title: string, playerPath?: string) =>
+    openInPlayer(url, title, playerPath)
+  )
+  ipcMain.handle(IPC.playerOpenWindow, (_e, target: PlayTarget) => openPlayerWindow(target))
+  ipcMain.handle(IPC.playerCloseWindow, () => {
+    playerWindow?.close()
+  })
 
   ipcMain.handle(IPC.parseList, () => listParses())
   ipcMain.handle(

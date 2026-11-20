@@ -700,7 +700,7 @@ function GeneralSettings({ settings, onPatch }: GeneralProps): JSX.Element {
                 <span className="fs-12 text-3">找到 {players.length} 个</span>
               ) : (
                 <span className="fs-12 text-3">
-                  一个都没找到（扫过 IINA / VLC / mpv / Infuse / Movist / Elmedia / QuickTime
+                  一个都没找到（扫过 IINA / VLC / mpv / sPlayer / nPlayer / Infuse / VidHub / Movist / Elmedia / QuickTime
                   的常见安装位置），装在别处的话请直接填上面的路径
                 </span>
               )

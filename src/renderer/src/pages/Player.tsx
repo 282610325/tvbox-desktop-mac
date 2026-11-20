@@ -3,11 +3,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { EmptyState } from '@/components/EmptyState'
 import { AiSummary } from '@/components/AiSummary'
+import { ExternalPlayerButton } from '@/components/ExternalPlayerButton'
 import { Poster } from '@/components/Poster'
 import { Icon } from '@/components/icons'
 import { detailKey, findSourceGroup, useApp } from '@/store/useApp'
 import { createArt } from '@/utils/artplayer'
 import { isDirectMedia, isHls, pickPlayableLine } from '@/utils/media'
+import { isPlayerWindow } from '@/utils/playerWindow'
 
 export function Player(): JSX.Element {
   const params = useParams()
@@ -175,19 +177,6 @@ export function Player(): JSX.Element {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [episode?.url, referer, settings?.accent])
 
-  const openExternal = useCallback(async (): Promise<void> => {
-    if (!episode) return
-    try {
-      const result = await window.api.player.open(
-        episode.url,
-        `${detail?.vod_name ?? ''} ${episode.name}`.trim()
-      )
-      notify(`已交给外部播放器：${result.player.split(/[\\/]/).pop()}`, 'success')
-    } catch (err) {
-      notify((err as Error).message, 'danger')
-    }
-  }, [episode, detail?.vod_name, notify])
-
   /** 把地址丢给系统默认浏览器 / 下载器 */
   const openInBrowser = useCallback(async (): Promise<void> => {
     if (!episode) return
@@ -270,8 +259,15 @@ export function Player(): JSX.Element {
           title="无法播放"
           desc={error}
           actions={
-            <button type="button" className="btn" onClick={() => navigate(-1)}>
-              返回
+            <button
+              type="button"
+              className="btn"
+              onClick={() => {
+                if (isPlayerWindow) void window.api.player.closeWindow()
+                else navigate(-1)
+              }}
+            >
+              {isPlayerWindow ? '关闭播放器' : '返回'}
             </button>
           }
         />
@@ -287,12 +283,22 @@ export function Player(): JSX.Element {
           title="找不到这一集"
           desc="线路或剧集可能已经变更，回到详情页重新选择。"
           actions={
-            <Link
-              className="btn btn-primary"
-              to={`/detail/${encodeURIComponent(siteKey)}/${encodeURIComponent(vodId)}`}
-            >
-              回到详情页
-            </Link>
+            isPlayerWindow ? (
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => void window.api.player.closeWindow()}
+              >
+                关闭播放器
+              </button>
+            ) : (
+              <Link
+                className="btn btn-primary"
+                to={`/detail/${encodeURIComponent(siteKey)}/${encodeURIComponent(vodId)}`}
+              >
+                回到详情页
+              </Link>
+            )
           }
         />
       </div>
@@ -311,8 +317,15 @@ export function Player(): JSX.Element {
   return (
     <div className="page page-player">
       <div className="detail-head">
-        <button type="button" className="btn btn-sm" onClick={() => navigate(-1)}>
-          <Icon name="chevron-left" size={14} /> 返回
+        <button
+          type="button"
+          className="btn btn-sm"
+          onClick={() => {
+            if (isPlayerWindow) void window.api.player.closeWindow()
+            else navigate(-1)
+          }}
+        >
+          <Icon name="chevron-left" size={14} /> {isPlayerWindow ? '关闭' : '返回'}
         </button>
         <span className="detail-title-inline" title={detail.vod_name}>
           {detail.vod_name}
@@ -359,9 +372,10 @@ export function Player(): JSX.Element {
               下一集 <Icon name="chevron-right" size={13} />
             </button>
             <span className="grow" />
-            <button type="button" className="btn btn-sm" onClick={() => void openExternal()}>
-              <Icon name="external" size={13} /> 外部播放器
-            </button>
+            <ExternalPlayerButton
+              url={episode.url}
+              title={`${detail.vod_name} ${episode.name}`.trim()}
+            />
             <button
               type="button"
               className="btn btn-sm"

@@ -462,6 +462,14 @@ export interface PlayerInfo {
   source?: 'scan' | 'registry' | 'manual'
 }
 
+/** 独立播放器窗口要打开的目标 */
+export interface PlayTarget {
+  siteKey: string
+  vodId: string
+  lineIndex: number
+  epIndex: number
+}
+
 export interface SearchOptions {
   /** 限定站点 key，不传则搜索全部可用站点 */
   sites?: string[]

@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react'
-import { NavLink, Route, Routes } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { NavLink, Route, Routes, useNavigate, useParams } from 'react-router-dom'
 import { Sidebar } from '@/components/Sidebar'
 import { TopBar } from '@/components/TopBar'
 import { Toasts } from '@/components/Toasts'
+import { EmptyState } from '@/components/EmptyState'
 import { Icon } from '@/components/icons'
 import { useApp } from '@/store/useApp'
+import { isPlayerWindow } from '@/utils/playerWindow'
 import { Home } from '@/pages/Home'
 import { Search } from '@/pages/Search'
 import { Detail } from '@/pages/Detail'
@@ -33,6 +35,18 @@ export default function App(): JSX.Element {
     )
   }
 
+  // 独立的播放器窗口：只渲染播放页，没有侧栏和顶栏，主窗口可以继续浏览
+  if (isPlayerWindow) {
+    return (
+      <>
+        <div className="player-window">
+          <PlayerWindowRoutes />
+        </div>
+        <Toasts />
+      </>
+    )
+  }
+
   const noSources = sources.length === 0
 
   return (
@@ -45,7 +59,7 @@ export default function App(): JSX.Element {
             <Route path="/" element={noSources ? <FirstRun /> : <Home />} />
             <Route path="/search" element={<Search />} />
             <Route path="/detail/:siteKey/:vodId" element={<Detail />} />
-            <Route path="/play/:siteKey/:vodId/:lineIndex/:epIndex" element={<Player />} />
+            <Route path="/play/:siteKey/:vodId/:lineIndex/:epIndex" element={<PlayRedirect />} />
             <Route path="/live" element={<Live />} />
             <Route path="/library" element={<Library />} />
             <Route path="/sites" element={<Sites />} />
@@ -55,6 +69,75 @@ export default function App(): JSX.Element {
         </main>
       </div>
       <Toasts />
+    </div>
+  )
+}
+
+/** 播放器窗口里的路由：主窗口发来新目标时，直接在当前窗口换片 */
+function PlayerWindowRoutes(): JSX.Element {
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    return window.api.player.onNavigate((t) => {
+      navigate(
+        `/play/${encodeURIComponent(t.siteKey)}/${encodeURIComponent(t.vodId)}/${t.lineIndex}/${t.epIndex}`
+      )
+    })
+  }, [navigate])
+
+  return (
+    <Routes>
+      <Route path="/play/:siteKey/:vodId/:lineIndex/:epIndex" element={<Player />} />
+      <Route
+        path="*"
+        element={
+          <div className="page">
+            <EmptyState
+              icon={<Icon name="screen-off" size={26} />}
+              title="没有正在播放的视频"
+              desc="回到主窗口点一个视频，就会在这里开始播放。"
+            />
+          </div>
+        }
+      />
+    </Routes>
+  )
+}
+
+/**
+ * 主窗口里的 /play 不再自己播：打开（或复用）播放器窗口，
+ * 然后退回进入播放页之前的那一页，用户可以继续找别的视频。
+ */
+function PlayRedirect(): JSX.Element {
+  const params = useParams()
+  const navigate = useNavigate()
+  const notify = useApp((s) => s.notify)
+  const fired = useRef(false)
+
+  useEffect(() => {
+    if (fired.current) return
+    fired.current = true
+    const siteKey = params.siteKey ?? ''
+    const vodId = params.vodId ?? ''
+    if (!siteKey || !vodId) {
+      navigate('/', { replace: true })
+      return
+    }
+    void window.api.player
+      .openWindow({
+        siteKey,
+        vodId,
+        lineIndex: Number(params.lineIndex ?? 0) || 0,
+        epIndex: Number(params.epIndex ?? 0) || 0
+      })
+      .catch((err: Error) => notify(`打开播放器失败：${err.message}`, 'danger'))
+    if (window.history.length > 1) navigate(-1)
+    else navigate('/', { replace: true })
+  }, [navigate, notify, params.siteKey, params.vodId, params.lineIndex, params.epIndex])
+
+  return (
+    <div className="boot">
+      <div className="boot-text">正在打开播放器窗口…</div>
     </div>
   )
 }
