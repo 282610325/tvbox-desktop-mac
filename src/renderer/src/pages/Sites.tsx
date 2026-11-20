@@ -21,8 +21,12 @@ export function Sites(): JSX.Element {
   const [typeFilter, setTypeFilter] = useState<'all' | SiteType>('all')
   const [sourceFilter, setSourceFilter] = useState<string>('all')
   const [onlyEnabled, setOnlyEnabled] = useState(false)
+  const [showUnsupported, setShowUnsupported] = useState(false)
   const [testing, setTesting] = useState<Record<string, boolean>>({})
   const [health, setHealth] = useState<Record<string, { ok: boolean; text: string }>>({})
+
+  const supported = useMemo(() => sites.filter((s) => !s.unsupported), [sites])
+  const unsupported = useMemo(() => sites.filter((s) => s.unsupported), [sites])
 
   const sourceNames = useMemo(
     () => Array.from(new Set(sites.map((s) => s.sourceName))).sort(),
@@ -31,13 +35,14 @@ export function Sites(): JSX.Element {
 
   const typeCounts = useMemo(() => {
     const map = new Map<SiteType, number>()
-    for (const s of sites) map.set(s.type, (map.get(s.type) ?? 0) + 1)
+    for (const s of supported) map.set(s.type, (map.get(s.type) ?? 0) + 1)
     return map
-  }, [sites])
+  }, [supported])
 
   const filtered = useMemo(() => {
     const k = kw.trim().toLowerCase()
     return sites.filter((s) => {
+      if (s.unsupported && !showUnsupported) return false
       if (typeFilter !== 'all' && s.type !== typeFilter) return false
       if (sourceFilter !== 'all' && s.sourceName !== sourceFilter) return false
       if (onlyEnabled && !s.enabled) return false
@@ -48,7 +53,7 @@ export function Sites(): JSX.Element {
         s.api.toLowerCase().includes(k)
       )
     })
-  }, [sites, kw, typeFilter, sourceFilter, onlyEnabled])
+  }, [sites, kw, typeFilter, sourceFilter, onlyEnabled, showUnsupported])
 
   async function test(site: Site): Promise<void> {
     setTesting((t) => ({ ...t, [site.key]: true }))
@@ -74,7 +79,7 @@ export function Sites(): JSX.Element {
     notify(`已测试 ${targets.length} 个站点`, 'success')
   }
 
-  const enabledKeys = filtered.filter((s) => s.enabled).map((s) => s.key)
+  const enabledKeys = filtered.filter((s) => s.enabled && !s.unsupported).map((s) => s.key)
 
   if (!sites.length) {
     return (
@@ -100,8 +105,9 @@ export function Sites(): JSX.Element {
         <div>
           <div className="page-title">影视源</div>
           <div className="page-sub">
-            共 {sites.length} 个站点 · 启用 {sites.filter((s) => s.enabled).length} 个 ·
+            共 {supported.length} 个可用站点 · 启用 {supported.filter((s) => s.enabled).length} 个 ·
             当前列表 {filtered.length} 个
+            {unsupported.length ? ` · ${unsupported.length} 个站点依赖 Spider，桌面端无法播放` : ''}
             {liveSources ? ` · 另有 ${liveSources} 路直播源，在「电视直播」页` : ''}
           </div>
         </div>
@@ -137,7 +143,7 @@ export function Sites(): JSX.Element {
             className={`chip${typeFilter === 'all' ? ' active' : ''}`}
             onClick={() => setTypeFilter('all')}
           >
-            全部类型 <span className="chip-count">{sites.length}</span>
+            全部类型 <span className="chip-count">{supported.length}</span>
           </button>
           {TYPE_ORDER.filter((t) => typeCounts.has(t)).map((t) => (
             <button
@@ -176,6 +182,18 @@ export function Sites(): JSX.Element {
         >
           只看已启用
         </button>
+
+        {unsupported.length ? (
+          <button
+            type="button"
+            className={`chip${showUnsupported ? ' active' : ''}`}
+            title="这些站点使用 csp_* Spider，需要 Android TVBox 的 jar，macOS 桌面端无法运行"
+            onClick={() => setShowUnsupported((v) => !v)}
+          >
+            {showUnsupported ? '隐藏' : '显示'}不支持的{' '}
+            <span className="chip-count">{unsupported.length}</span>
+          </button>
+        ) : null}
       </div>
 
       <div className="panel">

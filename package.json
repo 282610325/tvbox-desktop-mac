@@ -1,6 +1,6 @@
 {
   "name": "tvbox-desktop",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "TVBox Desktop for macOS - 纯白极简的影视聚合客户端",
   "main": "./out/main/index.js",
   "license": "MIT",
@@ -20,7 +20,7 @@
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json",
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json",
     "typecheck": "npm run typecheck:node && npm run typecheck:web",
-    "build:mac": "electron-vite build && electron-builder --mac && node scripts/make-dmg.mjs"
+    "build:mac": "electron-vite build && electron-builder --mac --publish never && node scripts/make-dmg.mjs"
   },
   "dependencies": {
     "artplayer": "^5.4.0",
