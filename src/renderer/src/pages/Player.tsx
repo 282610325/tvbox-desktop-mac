@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { EmptyState } from '@/components/EmptyState'
 import { AiSummary } from '@/components/AiSummary'
 import { ExternalPlayerButton } from '@/components/ExternalPlayerButton'
+import { NetworkModeToggle } from '@/components/NetworkModeToggle'
 import { Poster } from '@/components/Poster'
 import { Icon } from '@/components/icons'
 import { detailKey, findSourceGroup, useApp } from '@/store/useApp'
@@ -372,6 +373,7 @@ export function Player(): JSX.Element {
               下一集 <Icon name="chevron-right" size={13} />
             </button>
             <span className="grow" />
+            <NetworkModeToggle />
             <ExternalPlayerButton
               url={episode.url}
               title={`${detail.vod_name} ${episode.name}`.trim()}

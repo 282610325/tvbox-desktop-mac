@@ -657,7 +657,8 @@ function GeneralSettings({ settings, onPatch }: GeneralProps): JSX.Element {
             </span>
           </div>
           <div className="field-hint">
-            系统代理把视频 CDN 拦成 403 / 黑屏时保持直连；只有必须走代理才能访问的源才关掉
+            系统代理把视频 CDN 拦成 403 / 黑屏时保持直连；只有必须走代理才能访问的源才关掉。
+            播放页和直播页的工具栏也能快速切换（全局生效）
           </div>
         </div>
 

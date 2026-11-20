@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { EmptyState } from '@/components/EmptyState'
 import { ExternalPlayerButton } from '@/components/ExternalPlayerButton'
+import { NetworkModeToggle } from '@/components/NetworkModeToggle'
 import { Icon } from '@/components/icons'
 import { useApp } from '@/store/useApp'
 import { createArt } from '@/utils/artplayer'
@@ -440,6 +441,7 @@ export function Live(): JSX.Element {
                     </span>
                   ) : null}
                   <span className="grow" />
+                  <NetworkModeToggle className="btn btn-ghost btn-sm" />
                   <ExternalPlayerButton
                     url={url}
                     title={picked?.name ?? ''}
