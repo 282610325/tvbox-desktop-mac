@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { app } from 'electron'
@@ -7,6 +8,8 @@ import { readStore, writeStore } from './store'
 
 /** 记住「内置订阅已经送过了」，避免用户删光后重启又冒出来 */
 const BUNDLED_FLAG = 'bundled-sources'
+/** 记录内置订阅快照的内容指纹，预设内容更新时用它判断要不要重写 */
+const CONTENT_FLAG = (id: string): string => `preset-content:${id}`
 
 /**
  * 内置推荐订阅。
@@ -41,13 +44,13 @@ export interface SourcePreset {
 const PUBLIC_CMS: SourcePreset = {
   id: 'public-cms',
   name: '公开可用源（苹果CMS 采集站）',
-  desc: '实测存活的 12 个公开采集接口 + 1 个公开直播源（2026-11-20 复测）。这类源随时可能失效，失效后在「影视源」「电视直播」页一看便知。',
-  siteCount: 12,
+  desc: '实测存活的 11 个公开采集接口 + 1 个公开直播源（2026-11-23 复测，含 LibreTV 讨论区里的金鹰 / 百度 / 最大资源）。这类源随时可能失效，失效后在「影视源」「电视直播」页一看便知。',
+  siteCount: 11,
   liveCount: 1,
   config: {
     format: 'tvbox-desktop/1',
     name: '公开可用源（苹果CMS 采集站）',
-    note: '实测存活的公开采集接口，全部是标准苹果CMS v10 的 /api.php/provide/vod。判断标准：列表接口有数据、带 wd 的搜索有结果、详情能解析出剧集地址、至少一条线路能拉到 m3u8。接口随时可能失效，失效后在「影视源」页点「测试」即可看出来。',
+    note: '实测存活的公开采集接口，全部是标准苹果CMS v10 的 /api.php/provide/vod。判断标准：列表接口有数据、带 wd 的搜索有结果、详情能解析出剧集地址、至少一条线路能拉到 m3u8。2026-11-23 复测：移除了已超时的量子资源、电影天堂资源、光速资源、素博资源，新增 LibreTV discussions/652 里的金鹰资源、百度资源、最大资源。接口随时可能失效，失效后在「影视源」页点「测试」即可看出来。',
     sites: [
       {
         key: 'ffzy',
@@ -56,36 +59,6 @@ const PUBLIC_CMS: SourcePreset = {
         api: 'https://api.ffzyapi.com/api.php/provide/vod',
         searchable: 1
       },
-      {
-        key: 'lzi',
-        name: '量子资源',
-        type: 'cms',
-        api: 'https://cj.lziapi.com/api.php/provide/vod',
-        searchable: 1
-      },
-      {
-        key: 'dyttzy',
-        name: '电影天堂资源',
-        type: 'cms',
-        api: 'https://caiji.dyttzyapi.com/api.php/provide/vod',
-        searchable: 1
-      },
-      {
-        key: 'guangsu',
-        name: '光速资源',
-        type: 'cms',
-        api: 'https://api.guangsuapi.com/api.php/provide/vod',
-        searchable: 1
-      },
-      {
-        key: 'subo',
-        name: '素博资源',
-        type: 'cms',
-        api: 'https://subocaiji.com/api.php/provide/vod',
-        searchable: 1
-      },
-      // 下面 7 个来自 GitHub 公开 TVBox 配置的候选池，2026-11-20 逐个验证过：
-      // 搜索「庆余年」有结果、详情有剧集、至少一条线路的 m3u8 能直接 200 拉取。
       {
         key: 'hongniu',
         name: '红牛资源',
@@ -134,6 +107,29 @@ const PUBLIC_CMS: SourcePreset = {
         type: 'cms',
         api: 'https://thzy1.me/api.php/provide/vod',
         searchable: 1
+      },
+      // 下面 3 个来自 LibreTV discussions/652，2026-11-23 实测：
+      // 搜索「庆余年」有结果、详情有剧集、剧集 m3u8 能直接 200 拉取。
+      {
+        key: 'jyzy',
+        name: '金鹰资源',
+        type: 'cms',
+        api: 'http://jyzyapi.com/provide/vod/from/jinyingm3u8',
+        searchable: 1
+      },
+      {
+        key: 'apibd',
+        name: '百度资源',
+        type: 'cms',
+        api: 'http://api.apibdzy.com/api.php/provide/vod',
+        searchable: 1
+      },
+      {
+        key: 'zuidazy',
+        name: '最大资源',
+        type: 'cms',
+        api: 'http://zuidazy.me/api.php/provide/vod',
+        searchable: 1
       }
     ],
     // 只留 IPv4 那一条。实测 Gather.m3u 的 123 条线路里 108 条（88%）拉不起来，
@@ -149,15 +145,15 @@ const PUBLIC_CMS: SourcePreset = {
     // 首页内容位。写在这里的行优先于「每个源一条最近更新」的默认行为，
     // 让首启就有几行带分类的内容，而不是五条一模一样的「最近更新」。
     // typeId 用的是苹果CMS v10 的默认分类 id（6=动作片、13=国产剧、42=日本动漫），
-    // 这五条都在真实源上逐条验证过 20 条有内容。
+    // 2026-11-23 在对应源上逐条验证过 20 条有内容。
     tvboxDesktop: {
       home: {
         sections: [
-          { title: '电影 · 最近更新', site: 'dyttzy' },
           { title: '电影 · 动作片', site: 'ffzy', typeId: 6 },
-          { title: '电视剧 · 国产剧', site: 'lzi', typeId: 13 },
-          { title: '动漫 · 日本', site: 'guangsu', typeId: 42 },
-          { title: '综艺 · 最近更新', site: 'subo' }
+          { title: '电视剧 · 国产剧', site: 'wujin', typeId: 13 },
+          { title: '动漫 · 日本', site: 'hhzy', typeId: 42 },
+          { title: '综艺 · 最近更新', site: 'apibd' },
+          { title: '电影 · 最近更新', site: 'dyttzyw' }
         ]
       }
     }
@@ -237,18 +233,63 @@ export async function addPreset(id: string): Promise<ConfigSource> {
 
   if (!preset.config) throw new Error('这个内置订阅没有可用的配置内容')
 
-  const dir = join(app.getPath('userData'), 'presets')
-  mkdirSync(dir, { recursive: true })
-  const file = join(dir, `${preset.id}.json`)
-  writeFileSync(file, JSON.stringify(preset.config, null, 2), 'utf8')
+  const file = writePresetFile(preset)
+  await writeStore(CONTENT_FLAG(preset.id), contentHash(preset.config))
 
   const already = existing.find((s) => s.url === file)
   if (already) throw new Error('这个内置订阅已经添加过了')
   return addSource({ name: preset.name, url: file, kind: 'file' })
 }
 
+function presetFilePath(id: string): string {
+  const dir = join(app.getPath('userData'), 'presets')
+  mkdirSync(dir, { recursive: true })
+  return join(dir, `${id}.json`)
+}
+
+function contentHash(config: unknown): string {
+  return createHash('sha1').update(JSON.stringify(config)).digest('hex')
+}
+
+/** 把预设内容写到数据目录，返回文件路径 */
+function writePresetFile(preset: SourcePreset): string {
+  if (!preset.config) throw new Error('这个内置订阅没有可用的配置内容')
+  const file = presetFilePath(preset.id)
+  writeFileSync(file, JSON.stringify(preset.config, null, 2), 'utf8')
+  return file
+}
+
 /** 首启自动装的订阅：公开 CMS 站 + 饭太硬导航拆出的直播源 */
 const BUNDLED_PRESET_IDS = ['public-cms', 'fantaiying-live']
+
+/**
+ * 内置订阅的内容更新。
+ *
+ * 预设里的站点会换（失效的删掉、新验证的加上），已经添加过这个订阅的用户
+ * 也应该跟着更新，而不是永远停在安装时的快照。
+ *
+ * 只处理「仍指向内置快照文件」的那一条：用户删掉的不会重新长出来，
+ * 手工改过地址的也不会被覆盖。
+ */
+export async function refreshBundledPresets(): Promise<void> {
+  const existing = await listSources()
+  for (const id of BUNDLED_PRESET_IDS) {
+    const preset = SOURCE_PRESETS.find((p) => p.id === id)
+    if (!preset?.config) continue
+    const source = existing.find((s) => s.url === presetFilePath(id))
+    if (!source) continue
+    const hash = contentHash(preset.config)
+    if ((await readStore<string>(CONTENT_FLAG(id), '')) === hash) continue
+    try {
+      writePresetFile(preset)
+      await writeStore(CONTENT_FLAG(id), hash)
+      await syncSource(source.id)
+      console.log(`[presets] 内置订阅 ${id} 已更新到最新内容`)
+    } catch (err) {
+      console.warn(`[presets] 更新内置订阅 ${id} 失败：`, err)
+    }
+  }
+}
 
 /**
  * 首启把内置订阅装好，让打包版「装完即用」。

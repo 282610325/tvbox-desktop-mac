@@ -44,7 +44,7 @@ import type { ResolveOptions } from './services/parse'
 import { cancelSearch, searchAll } from './services/search'
 import { DEFAULT_SETTINGS, getSettings, saveSettings } from './services/settings'
 import { getSites, setSiteEnabled, setSitesEnabled, testSite } from './services/sites'
-import { addPreset, ensureBundledSources, listPresets } from './services/presets'
+import { addPreset, ensureBundledSources, listPresets, refreshBundledPresets } from './services/presets'
 import {
   addSource,
   hydrate,
@@ -445,6 +445,8 @@ void app.whenReady().then(async () => {
   // 装完即用：一个配置源都没有时（全新安装）自动装好内置订阅并同步一次，
   // 用户打开就能搜、能看直播，不必先自己去找订阅地址。
   await ensureBundledSources()
+  // 内置订阅的站点会随版本更新（删失效、加新验证的），已添加过的也同步一份
+  await refreshBundledPresets()
   await createWindow()
 
   app.on('activate', () => {
