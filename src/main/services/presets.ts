@@ -44,8 +44,8 @@ export interface SourcePreset {
 const PUBLIC_CMS: SourcePreset = {
   id: 'public-cms',
   name: '公开可用源（苹果CMS 采集站）',
-  desc: '实测存活的 11 个公开采集接口 + 1 个公开直播源（2026-11-23 复测，含 LibreTV 讨论区里的金鹰 / 百度 / 最大资源）。这类源随时可能失效，失效后在「影视源」「电视直播」页一看便知。',
-  siteCount: 11,
+  desc: '实测存活的 10 个公开采集接口 + 1 个公开直播源（2026-11-23 复测，含 LibreTV 讨论区里的金鹰 / 百度 / 最大资源）。这类源随时可能失效，失效后在「影视源」「电视直播」页一看便知。',
+  siteCount: 10,
   liveCount: 1,
   config: {
     format: 'tvbox-desktop/1',
@@ -99,13 +99,6 @@ const PUBLIC_CMS: SourcePreset = {
         name: '电影天堂（新）',
         type: 'cms',
         api: 'http://dyttzyw.com/api.php/provide/vod',
-        searchable: 1
-      },
-      {
-        key: 'taohua',
-        name: '桃花资源',
-        type: 'cms',
-        api: 'https://thzy1.me/api.php/provide/vod',
         searchable: 1
       },
       // 下面 3 个来自 LibreTV discussions/652，2026-11-23 实测：
