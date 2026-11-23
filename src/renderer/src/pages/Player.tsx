@@ -32,6 +32,9 @@ export function Player(): JSX.Element {
 
   const containerRef = useRef<HTMLDivElement>(null)
   const artRef = useRef<Artplayer | null>(null)
+  /** 排序后的「下一集」原始索引，供播放结束事件读取（事件回调里拿不到最新 state） */
+  const nextEpRef = useRef(-1)
+  const autoNextRef = useRef(true)
 
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
@@ -41,11 +44,16 @@ export function Player(): JSX.Element {
   const [resolving, setResolving] = useState(false)
   /** 这一次是靠哪条路换出的地址，或者为什么没换出来 */
   const [resolveNote, setResolveNote] = useState('')
+  /** 选集排序：默认按采集站给的顺序，也可以按集名正序 / 倒序 */
+  const [episodeSort, setEpisodeSort] = useState<'default' | 'asc' | 'desc'>('default')
+  /** 本集播完自动播放下一集（按当前排序结果） */
+  const [autoNext, setAutoNext] = useState(true)
 
   const detail = details[detailKey(siteKey, vodId)]
   const site = sites.find((s) => s.key === siteKey)
   const line = detail?.lines[lineIndex]
   const episode = line?.episodes[epIndex]
+  const episodes = line?.episodes ?? []
 
   const referer = useMemo(() => {
     const api = site?.api ?? ''
@@ -125,7 +133,16 @@ export function Player(): JSX.Element {
       save(true)
       art.on('video:timeupdate', () => save())
       art.on('video:pause', () => save(true))
-      art.on('video:ended', () => save(true))
+      art.on('video:ended', () => {
+        save(true)
+        // 自动连播：顺序来自当前的选集排序，最后一集或关闭连播时停住
+        if (!autoNextRef.current) return
+        const target = nextEpRef.current
+        if (target < 0) return
+        navigate(
+          `/play/${encodeURIComponent(siteKey)}/${encodeURIComponent(vodId)}/${lineIndex}/${target}`
+        )
+      })
     }
 
     const boot = async (): Promise<void> => {
@@ -241,6 +258,32 @@ export function Player(): JSX.Element {
     return i !== lineIndex && isDirectMedia(detail.lines[i]?.episodes[0]?.url ?? '') ? i : -1
   }, [direct, detail, lineIndex])
 
+  // 选集排序。默认保留采集站给的顺序；正序 / 倒序按集名做自然排序
+  // （数字按数值比，所以「第2集」会排在「第10集」前面）。
+  const orderedEpisodes = useMemo(() => {
+    if (episodeSort === 'default') return episodes
+    const collator = new Intl.Collator('zh-CN', { numeric: true, sensitivity: 'base' })
+    return [...episodes].sort(
+      (a, b) => collator.compare(a.name, b.name) * (episodeSort === 'asc' ? 1 : -1)
+    )
+  }, [episodes, episodeSort])
+
+  // 上一集 / 下一集都按排序结果算，自动连播也走同一份顺序
+  const currentPos = orderedEpisodes.findIndex((ep) => ep.index === epIndex)
+  const prevEp = currentPos > 0 ? orderedEpisodes[currentPos - 1].index : -1
+  const nextEp =
+    currentPos >= 0 && currentPos < orderedEpisodes.length - 1
+      ? orderedEpisodes[currentPos + 1].index
+      : -1
+  nextEpRef.current = nextEp
+  autoNextRef.current = autoNext
+
+  const sortLabel =
+    episodeSort === 'default' ? '默认顺序' : episodeSort === 'asc' ? '集数正序' : '集数倒序'
+  const cycleSort = (): void => {
+    setEpisodeSort((mode) => (mode === 'default' ? 'asc' : mode === 'asc' ? 'desc' : 'default'))
+  }
+
   if (loading && !detail) {
     return (
       <div className="page">
@@ -306,9 +349,6 @@ export function Player(): JSX.Element {
     )
   }
 
-  const episodes = line?.episodes ?? []
-  const prev = epIndex > 0 ? epIndex - 1 : -1
-  const next = epIndex < episodes.length - 1 ? epIndex + 1 : -1
   const goTo = (index: number): void => {
     navigate(
       `/play/${encodeURIComponent(siteKey)}/${encodeURIComponent(vodId)}/${lineIndex}/${index}`
@@ -359,18 +399,26 @@ export function Player(): JSX.Element {
             <button
               type="button"
               className="btn btn-sm"
-              disabled={prev < 0}
-              onClick={() => goTo(prev)}
+              disabled={prevEp < 0}
+              onClick={() => goTo(prevEp)}
             >
               <Icon name="chevron-left" size={13} /> 上一集
             </button>
             <button
               type="button"
               className="btn btn-sm"
-              disabled={next < 0}
-              onClick={() => goTo(next)}
+              disabled={nextEp < 0}
+              onClick={() => goTo(nextEp)}
             >
               下一集 <Icon name="chevron-right" size={13} />
+            </button>
+            <button
+              type="button"
+              className="btn btn-sm"
+              title="本集播完后自动播放下一集（按当前选集排序）"
+              onClick={() => setAutoNext((v) => !v)}
+            >
+              <Icon name={autoNext ? 'check' : 'play'} size={13} /> 连播{autoNext ? '开' : '关'}
             </button>
             <span className="grow" />
             <NetworkModeToggle />
@@ -505,8 +553,20 @@ export function Player(): JSX.Element {
             )}
           </div>
 
+          <div className="player-side-label" style={{ marginTop: 10 }}>
+            <span>选集</span>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              title="切换选集排序：默认顺序 / 集数正序 / 集数倒序（上一集、下一集和自动连播都按这个顺序）"
+              onClick={cycleSort}
+            >
+              <Icon name="filter" size={12} /> {sortLabel}
+            </button>
+          </div>
+
           <div className="player-episodes">
-            {episodes.map((ep) => (
+            {orderedEpisodes.map((ep) => (
               <button
                 key={`${ep.index}-${ep.url}`}
                 type="button"
