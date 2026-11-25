@@ -1,13 +1,11 @@
 import type { LiveChannelEntry, LiveHealth } from '@shared/types'
-import { isHttpUrl, isRoomUrl, roomPlatform } from '@shared/liveUrl'
+import { isHttpUrl } from '@shared/liveUrl'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { EmptyState } from '@/components/EmptyState'
-import { ExternalPlayerButton } from '@/components/ExternalPlayerButton'
 import { NetworkModeToggle } from '@/components/NetworkModeToggle'
 import { Icon } from '@/components/icons'
 import { useApp } from '@/store/useApp'
-import { createArt } from '@/utils/artplayer'
 
 type HealthMap = Record<string, LiveHealth>
 
@@ -39,7 +37,6 @@ export function Live(): JSX.Element {
   const live = useApp((s) => s.live)
   const liveLoading = useApp((s) => s.liveLoading)
   const loadLive = useApp((s) => s.loadLive)
-  const settings = useApp((s) => s.settings)
   const sources = useApp((s) => s.sources)
   const notify = useApp((s) => s.notify)
 
@@ -60,8 +57,6 @@ export function Live(): JSX.Element {
   const warmedRef = useRef<Set<string>>(new Set())
 
   const stageWrapRef = useRef<HTMLDivElement | null>(null)
-  const stageRef = useRef<HTMLDivElement | null>(null)
-  const artRef = useRef<ReturnType<typeof createArt> | null>(null)
 
   const liveSourceCount = sources.reduce((sum, s) => sum + s.liveCount, 0)
 
@@ -122,7 +117,9 @@ export function Live(): JSX.Element {
    * 只预热前 60 个频道，否则「地方频道」一个分组 247 个会探很久。
    */
   const warm = useCallback(
-    async (list: LiveChannelEntry[]): Promise<void> => {
+    async (input: LiveChannelEntry[]): Promise<void> => {
+      // 「需代理」分组直连探不通，探了只会把它们误标成死链，直接跳过
+      const list = input.filter((c) => !c.group.includes('需代理'))
       const urls = [...new Set(list.flatMap((c) => c.urls.map((u) => u.url)))]
         .filter(isHttpUrl)
         .filter((u) => !warmedRef.current.has(u))
@@ -148,115 +145,60 @@ export function Live(): JSX.Element {
     return () => clearTimeout(timer)
   }, [channels, warm])
 
-  const rawUrl = picked?.urls[lineIndex]?.url ?? ''
+  /** 把频道交给独立播放器窗口：和点播共用一个窗口，换频道只换内容 */
+  const openLive = useCallback(
+    (channel: LiveChannelEntry, idx: number): void => {
+      void window.api.player
+        .openLive({
+          title: channel.name,
+          group: channel.group,
+          urls: channel.urls,
+          lineIndex: idx
+        })
+        .catch((err: Error) => notify(err.message, 'danger'))
+    },
+    [notify]
+  )
 
-  const [resolved, setResolved] = useState<{ url: string; referer: string; line?: string } | null>(null)
-  const [resolving, setResolving] = useState(false)
-  const [resolveError, setResolveError] = useState('')
-  const [retrySeq, setRetrySeq] = useState(0)
-
-  // 房间号频道（huya:// / douyin://）没有现成地址，点开时才去平台换。
-  // 换出来的地址带防盗链参数，只能当场用，所以不做任何缓存。
-  useEffect(() => {
-    if (!rawUrl) {
-      setResolved(null)
-      setResolveError('')
-      setResolving(false)
-      return
-    }
-    if (!isRoomUrl(rawUrl)) {
-      setResolved({ url: rawUrl, referer: '' })
-      setResolveError('')
-      setResolving(false)
-      return
-    }
-    let cancelled = false
-    setResolving(true)
-    setResolved(null)
-    setResolveError('')
-    void window.api.live
-      .resolve(rawUrl)
-      .then((r) => {
-        if (!cancelled) setResolved(r)
-      })
-      .catch((err: Error) => {
-        if (!cancelled) setResolveError(err.message)
-      })
-      .finally(() => {
-        if (!cancelled) setResolving(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [rawUrl, retrySeq])
-
-  const url = resolved?.url ?? ''
-
-  // 播放器事件处理里要读到「最新一次选择」，而播放器实例只在 url 变化时重建，
-  // 用 ref 兜住，免得同一条地址被两条线路共用时拿到过期的 lineIndex。
-  const latestRef = useRef({ picked, lineIndex })
-  useEffect(() => {
-    latestRef.current = { picked, lineIndex }
-  }, [picked, lineIndex])
-
-  // 换频道/换线路时重建播放器实例 —— Artplayer 的 url 不支持热切换 hls 流
-  useEffect(() => {
-    const el = stageRef.current
-    if (!el || !url) return
-    el.innerHTML = ''
-    const art = createArt(el, {
-      url,
-      referer: resolved?.referer || undefined,
-      accent: settings?.accent,
-      live: true
-    })
-    artRef.current = art
-    art.on('video:error', () => {
-      const { picked: cur, lineIndex: idx } = latestRef.current
-      const total = cur?.urls.length ?? 0
-      // 这条拉不起来就自己换下一条 —— 这正是「很多都不能观看」的地方，
-      // 不该让人一条条手动试
-      if (cur && idx + 1 < total) {
-        setLineIndex(idx + 1)
-        notify(`这条线路拉不起来，已自动换到第 ${idx + 2} / ${total} 条`, 'warn')
-        return
-      }
-      art.notice.show = '这个频道拉流失败，换一条线路试试'
-    })
-    return () => {
-      artRef.current = null
-      art.destroy(false)
-    }
-  }, [url, resolved?.referer, settings?.accent, notify])
-
-  /** 点频道：先挑一条体检通过的线路，没有就当场探一遍 */
+  /** 点频道：先挑一条体检通过的线路，没有就当场探一遍，然后交给播放器窗口 */
   const play = useCallback(
     async (channel: LiveChannelEntry): Promise<void> => {
       setPicked(channel)
       setPickSeq((n) => n + 1)
 
+      // 需代理的频道直连探不通，交给播放器窗口切代理后再试，别在这里误判
+      if (channel.group.includes('需代理')) {
+        setLineIndex(0)
+        openLive(channel, 0)
+        return
+      }
+
       const known = channel.urls.findIndex((u) => isHttpUrl(u.url) && health[u.url]?.ok)
       if (known >= 0) {
         setLineIndex(known)
+        openLive(channel, known)
         return
       }
-      setLineIndex(0)
 
+      let target = 0
       const urls = channel.urls.map((u) => u.url).filter(isHttpUrl)
-      if (!urls.length) return
-      setPicking(true)
-      try {
-        const next = await probe(urls)
-        const hit = next ? channel.urls.findIndex((u) => next[u.url]?.ok) : -1
-        if (hit > 0) setLineIndex(hit)
-        else if (next && hit < 0) {
-          notify(`${channel.name}：${urls.length} 条线路都没拉起来，可以换一个频道试试`, 'warn')
+      if (urls.length) {
+        setPicking(true)
+        try {
+          const next = await probe(urls)
+          const hit = next ? channel.urls.findIndex((u) => next[u.url]?.ok) : -1
+          if (hit >= 0) target = hit
+          else if (next) {
+            notify(`${channel.name}：${urls.length} 条线路都没拉起来，可以换一个频道试试`, 'warn')
+          }
+        } finally {
+          setPicking(false)
         }
-      } finally {
-        setPicking(false)
       }
+      setLineIndex(target)
+      openLive(channel, target)
     },
-    [health, notify, probe]
+    [health, notify, probe, openLive]
   )
 
   // 把播放器拉回视野。频道多的时候（「地方频道」一个分组就有 247 个），
@@ -266,12 +208,6 @@ export function Live(): JSX.Element {
     if (!pickSeq) return
     stageWrapRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
   }, [pickSeq])
-
-  const copyUrl = useCallback(async (): Promise<void> => {
-    if (!url) return
-    await navigator.clipboard.writeText(url)
-    notify('播放地址已复制', 'success')
-  }, [url, notify])
 
   const recheck = useCallback(async (): Promise<void> => {
     await window.api.live.clearHealth()
@@ -430,7 +366,10 @@ export function Live(): JSX.Element {
                             key={u.url}
                             className={`chip chip-source${i === lineIndex ? ' active' : ''}`}
                             title={h ? `${u.url}（${h.ok ? `正常 ${h.ms}ms` : h.error}）` : u.url}
-                            onClick={() => setLineIndex(i)}
+                            onClick={() => {
+                              setLineIndex(i)
+                              openLive(picked, i)
+                            }}
                           >
                             {i === lineIndex ? <Icon name="check" size={12} /> : null}
                             {h ? <span className={`dot ${h.ok ? 'ok' : 'bad'}`} /> : null}
@@ -442,53 +381,42 @@ export function Live(): JSX.Element {
                   ) : null}
                   <span className="grow" />
                   <NetworkModeToggle className="btn btn-ghost btn-sm" />
-                  <ExternalPlayerButton
-                    url={url}
-                    title={picked?.name ?? ''}
-                    className="btn btn-ghost btn-sm"
-                  />
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-sm"
-                    disabled={!url}
-                    onClick={() => void copyUrl()}
-                  >
-                    <Icon name="link" size={13} />
-                    复制地址
-                  </button>
                 </div>
-                {resolveError ? (
-                  <div className="live-stage live-stage-msg">
-                    <Icon name="alert" size={22} />
-                    <div className="live-stage-msg-title">换不到播放地址</div>
-                    <div className="live-stage-msg-desc">{resolveError}</div>
-                    <button
-                      type="button"
-                      className="btn btn-ghost btn-sm"
-                      onClick={() => setRetrySeq((n) => n + 1)}
-                    >
-                      <Icon name="refresh" size={13} />
-                      重试
-                    </button>
-                  </div>
-                ) : resolving ? (
-                  <div className="live-stage live-stage-msg">
-                    <span className="spin" />
-                    <div className="live-stage-msg-desc">
-                      正在向{roomPlatform(rawUrl) ?? '平台'}换播放地址…
-                    </div>
-                  </div>
-                ) : picking ? (
+                {picking ? (
                   <div className="live-stage live-stage-msg">
                     <span className="spin" />
                     <div className="live-stage-msg-desc">正在挑一条能用的线路…</div>
                   </div>
                 ) : (
-                  <div className="live-stage" ref={stageRef} />
+                  <div className="live-stage live-stage-msg">
+                    <Icon name="monitor" size={22} />
+                    <div className="live-stage-msg-title">已在独立播放器窗口播放</div>
+                    <div className="live-stage-msg-desc">
+                      「TVBox 播放器」窗口正在播放 {picked.name}，这里可以继续换频道。
+                    </div>
+                    <div className="hstack">
+                      <button
+                        type="button"
+                        className="btn btn-sm"
+                        onClick={() => openLive(picked, lineIndex)}
+                      >
+                        <Icon name="monitor" size={13} /> 切到播放器窗口
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-sm"
+                        onClick={() => void window.api.player.closeWindow()}
+                      >
+                        关闭播放器
+                      </button>
+                    </div>
+                  </div>
                 )}
-                <div className="player-url mono" title={url || rawUrl}>
-                  <span className="player-url-text">{url || rawUrl}</span>
-                </div>
+                {picked.urls[lineIndex] ? (
+                  <div className="player-url mono" title={picked.urls[lineIndex].url}>
+                    <span className="player-url-text">{picked.urls[lineIndex].url}</span>
+                  </div>
+                ) : null}
               </div>
             ) : null}
 

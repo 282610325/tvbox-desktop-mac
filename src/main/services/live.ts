@@ -195,15 +195,100 @@ export function collectLiveSources(parsed: ParsedConfig[]): Array<{ name: string
 }
 
 /**
- * 内置的自定义频道。
+ * 内置频道：主播房间 + 实测可用的港澳台 / 海外频道。
  *
- * 这些不是任何 IPTV 订阅能提供的东西 —— 它们是某个主播的房间，地址要现解析
- * （见 streamResolve.ts）。写死在代码里，跟着应用走：换订阅、跑自检清空配置源都不会把它们弄丢。
+ * 房间号（huya://）要现解析（见 streamResolve.ts）。
+ * 其余频道是 2026-11-25 从 iptv-org、myIPTV 等公开 m3u 里逐条实测过的：
+ * 不只验证清单，还实际拉了清单里最新的一个 ts 分片确认是媒体流。分两类：
+ * - 普通分组：直连就能播；
+ * - 「（需代理）」分组：必须走系统代理（本机 127.0.0.1:7892 实测通过），
+ *   播放器窗口会自动切到代理并重试。
  *
+ * 写死在代码里跟着应用走：换订阅、清空配置源都不会丢。
  * 分组名「游戏赛事」会被 normalizeGroup 的别名规则并到公开源的「•游戏「赛事」」里。
  */
 export const BUILTIN_LIVE = `游戏赛事,#genre#
 danking直播,huya://10188
+港澳台,#genre#
+Pet Club TV,https://petclub-samsungaus.amagi.tv/playlist.m3u8
+TTV News,https://live.wcetv.com/hls/master-ttvnews.m3u8
+TVBS-Asia,http://38.64.72.148/hls/modn/list/4005/playlist.m3u8
+Taiwan Indigenous TV,https://streamipcfapp.akamaized.net/live/_definst_/live_720/key_b1500.m3u8
+CGNTV Chinese,https://d3e05csss9c272.cloudfront.net/out/v1/f0bf71c57581470fb9379f603e8f5d83/CGNWebLiveCN.m3u8
+Beautiful Life TV,https://5ddce30eb4b55.streamlock.net/bltvhd/bltv1/playlist.m3u8
+WXTV,https://mobile.ccdntech.com/transcoder/_definst_/vod164_Live/live/chunklist_w1177047531.m3u8
+东森超视,http://38.64.72.148/hls/modn/list/2013/chunklist1.m3u8
+民视新闻,http://38.64.72.148/hls/modn/list/4012/playlist.m3u8
+大立电视,http://www.dalitv.com.tw:4568/live/dali/index.m3u8
+DAAI TV,https://pull.daaiplus.com/live-DAAIPLUS/live-DAAIPLUS_HD.m3u8
+海外,#genre#
+CNN,https://tvsen6.aynaott.com/cnn/index.m3u8
+CNN en Espanol,https://amg00803-cnnfast-amg00803c3-lg-es-5477.playouts.now.amagi.tv/playlist.m3u8
+BBC Earth US,https://amg00793-amg00793c6-vizio-us-2670.playouts.now.amagi.tv/playlist/amg00793-bbcstudios-bbcearthaall-vizious/playlist.m3u8
+BBC Drama US,https://linear-938.frequency.stream/mt/vizio/938/hls/master/playlist.m3u8
+BBC One,https://r.eu.cdn-redge.media/livehls/oeu/mt/live/bbc_one/live.livx/playlist.m3u8
+MBC America,https://cdn-us-east-prod-ingest-infra-dacast-com.akamaized.net/624ff8f9-db18-da92-4d42-896fa2ff3eb3/source/index.m3u8
+MBC Drama USA,https://shd-gcp-live.edgenextcdn.net/live/bitmovin-mbc-drama-usa/ea2f5db904aff224b7066e59c7f585a2/index.m3u8
+MBC 3 USA,https://shd-gcp-live.edgenextcdn.net/live/bitmovin-mbc-3-usa/5d58265a862a476dc7f97694addb5ded/index.m3u8
+MBC Masr USA,https://shd-gcp-live.edgenextcdn.net/live/bitmovin-mbc-masr-usa/cd8d40acdab28aac0582faa3bd3983f1/index.m3u8
+KBSV 23.1,http://66.242.170.53/hls/live/temp/index.m3u8
+Fox KBSI,https://live.field59.com/kbsi/kbsi1/playlist.m3u8
+Mega TV,https://mdstrm.com/live-stream-playlist/67ed74e8af482ba71d47fd7b.m3u8
+Arirang TV,http://amdlive-ch01.ctnd.com.edgesuite.net/arirang_1ch/smil:arirang_1ch.smil/playlist.m3u8
+Weathernews,https://rch01e-alive-hls.akamaized.net/38fb45b25cdb05a1/out/v1/4e907bfabc684a1dae10df8431a84d21/index.m3u8
+CJ OnStyle,https://live-ch1.cjonstyle.net/cjmalllive/stream2/playlist.m3u8
+CNA,https://live1.mediadesk.al/cnatvlive.m3u8
+CGNTV 日本,https://d2p4mrcwl6ly4.cloudfront.net/out/v1/8d50f69fdbbf411a8d302743e4263716/CGNWebLiveJP.m3u8
+CJ OnStyle+,https://live-ch2.cjonstyle.net/cjosplus/live2/playlist.m3u8
+GCN 韩国,http://liveko24-manminglobal3.ktcdn.co.kr/liveko24/gcnko_1300k.stream/playlist.m3u8
+BBS TV,http://bbstv.clouducs.com:1935/bbstv-live/livestream/playlist.m3u8
+BTN TV,https://btn.nowcdn.co.kr/btn/btnlive2m/playlist.m3u8
+Gugak TV,https://mgugaklive.nowcdn.co.kr/gugakvideo/gugakvideo.stream/playlist.m3u8
+Arirang TV HD,https://freem3u.xyz/api/live/play.m3u8?vid=111
+港澳台 · 需代理,#genre#
+RTHK TV 31,http://php.jdshipin.com:8880/TVOD/iptv.php?id=rthk31
+RTHK TV 32,http://php.jdshipin.com:8880/TVOD/iptv.php?id=rthk32
+TVB 无线新闻,http://r.jdshipin.com/CkuBd
+明珠台,http://r.jdshipin.com/GeWKr?id=mzt720
+TVB 娱乐新闻,http://php.jdshipin.com/TVOD/iptv.php?id=tvbylxw
+翡翠台,http://r.jdshipin.com/qClQf
+翡翠台,http://php.jdshipin.com:8880/TVOD/iptv.php?id=j1
+华丽翡翠台,http://r.jdshipin.com/thuYX
+凤凰中文,http://r.jdshipin.com/cCCzW
+凤凰资讯,http://r.jdshipin.com/0Rp07
+凤凰香港,http://r.jdshipin.com/yDoTN
+TVB Plus,http://r.jdshipin.com/Nr5jq
+TVB星河,http://r.jdshipin.com/sXuuD
+ViuTV,http://php.jdshipin.com/TVOD/iptv.php?id=viutv
+HOY TV,http://r.jdshipin.com/sFw4S
+澳门卫视,http://php.jdshipin.com:8880/TVOD/iptv.php?id=as
+澳视澳门,http://r.jdshipin.com/n2YZI
+澳视卫星,http://r.jdshipin.com/QFhCq
+香港国际财经台,http://uc6.i-cable.com/live_freedirect/opentvhd002_h.live/playlist.m3u8
+TVBS 新闻台,http://61.221.215.25:8800/hls/9/index.m3u8
+三立戏剧,http://61.221.215.25:8800/hls/41/index.m3u8
+Hakka TV,https://h5cul1yar48um3t.wcetv.com/hls/hakkatv.m3u8
+Good TV,https://live.streamingfast.net/osmflivech1.m3u8
+Good 2,https://live.streamingfast.net/osmflivech2.m3u8
+NTD TV,https://live.ntdtv.com/aplive200/playlist.m3u8
+Supreme Master TV,https://lbs-us1.suprememastertv.com/720p.m3u8
+海外 · 需代理,#genre#
+MTV Japan,http://103.255.250.188:5002/cs18.m3u8?channel=zhongying&gid=cs18&token=guoziyun
+Cartoon Network Japan,http://103.255.250.188:5002/cs25.m3u8?channel=zhongying&gid=cs25&token=guoziyun
+Disney Channel Japan,http://103.255.250.188:5002/bs24.m3u8?channel=zhongying&gid=bs24&token=guoziyun
+EBS 1TV,https://ebsonair.ebs.co.kr/ebs1familypc/familypc1m/playlist.m3u8
+EBS Kids,https://ebsonair.ebs.co.kr/ebsufamilypc/familypc1m/playlist.m3u8
+Sakuranbo TV,https://tv-stream-test.daydreamer-json.cc/stream/bd2dd29080c36c9b01338d329156febe/master.m3u8
+TV-U Yamagata,https://tv-stream-test.daydreamer-json.cc/stream/1668b5a43560598b385ccf33fd2d5f43/master.m3u8
+YTS 山形电视台,https://tv-stream-test.daydreamer-json.cc/stream/407fd00ebd2a059c9cd1ea3fa7156097/master.m3u8
+Autentic History,https://9e754fa707344ccca6d84955c8fcaf36.mediatailor.us-east-1.amazonaws.com/v1/master/44f73ba4d03e9607dcd9bebdcb8494d86964f1d8/RlaxxTV-eu_AutenticHistory/playlist.m3u8
+Autentic Travel,https://cb0c87cc605942ff9766a4e6744bbadc.mediatailor.us-east-1.amazonaws.com/v1/master/44f73ba4d03e9607dcd9bebdcb8494d86964f1d8/RlaxxTV-eu_AutenticTravel/playlist.m3u8
+Adventure Earth,https://a57e9c69976649b582a8d7604c00e69a.mediatailor.us-east-1.amazonaws.com/v1/master/44f73ba4d03e9607dcd9bebdcb8494d86964f1d8/RlaxxTV-eu_AdventureEarth/playlist.m3u8
+DW 英语,https://dwamdstream102.akamaized.net/hls/live/2015525/dwstream102/index.m3u8
+EBS 2TV,https://ebsonair.ebs.co.kr/ebs2familypc/familypc1m/playlist.m3u8
+EBS English,https://ebsonair.ebs.co.kr/plus3familypc/familypc1m/playlist.m3u8
+EBS Plus 1,https://ebsonair.ebs.co.kr/plus1familypc/familypc1m/playlist.m3u8
+UBC 蔚山,https://stream.ubc.co.kr/hls/ubctvstream/index.m3u8
 `
 
 /** 内置频道始终算一个直播源 */

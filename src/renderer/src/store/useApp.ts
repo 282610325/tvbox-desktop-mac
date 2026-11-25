@@ -396,6 +396,8 @@ interface AppState {
   syncAll: () => Promise<void>
   addPreset: (id: string) => Promise<void>
   updateSettings: (patch: Partial<AppSettings>) => Promise<void>
+  /** 其它窗口改了设置时同步过来（不写磁盘，只刷新本地状态和主题） */
+  syncSettings: (settings: AppSettings) => void
   setSiteEnabled: (key: string, enabled: boolean) => Promise<void>
   setSitesEnabled: (keys: string[], enabled: boolean) => Promise<void>
   runSearch: (wd: string, sites?: string[]) => Promise<void>
@@ -539,6 +541,11 @@ export const useApp = create<AppState>((set, get) => ({
 
   async updateSettings(patch) {
     const settings = await window.api.settings.set(patch)
+    set({ settings })
+    applyTheme(settings)
+  },
+
+  syncSettings(settings) {
     set({ settings })
     applyTheme(settings)
   },

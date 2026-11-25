@@ -5,6 +5,8 @@ export const IPC = {
 
   settingsGet: 'settings:get',
   settingsSet: 'settings:set',
+  /** 主进程 → 所有窗口：设置变了，前端 store 同步一份（多窗口时避免状态各说各话） */
+  settingsChanged: 'settings:changed',
 
   sourcesList: 'sources:list',
   sourcesAdd: 'sources:add',
@@ -51,9 +53,15 @@ export const IPC = {
   playerOpen: 'player:open',
   /** 打开 / 复用唯一的播放器窗口 */
   playerOpenWindow: 'player:open-window',
+  /** 打开 / 复用唯一的播放器窗口播放直播 */
+  playerOpenLive: 'player:open-live',
+  /** 播放器窗口启动后拉一次当前的直播目标（防止事件早于监听注册） */
+  playerGetLive: 'player:get-live',
   playerCloseWindow: 'player:close-window',
   /** 主进程 → 播放器窗口：切换正在播放的视频 */
   playerNavigate: 'player:navigate',
+  /** 主进程 → 播放器窗口：切换正在播放的直播频道 */
+  playerLive: 'player:live',
 
   parseList: 'parse:list',
   parseResolve: 'parse:resolve',

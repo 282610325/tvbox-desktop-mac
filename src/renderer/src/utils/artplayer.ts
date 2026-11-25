@@ -92,10 +92,16 @@ export interface ArtOptions {
   poster?: string
   /** 直播源通常没有时长/倍速的意义 */
   live?: boolean
+  /**
+   * 强制按 m3u8 处理。
+   * 有些直播地址是短链 / .php 接口（例如 r.jdshipin.com/xxx），本身不以 .m3u8 结尾，
+   * 但返回的是 HLS 清单，靠扩展名判断会把它们当成普通视频。
+   */
+  forceHls?: boolean
 }
 
 export function createArt(el: HTMLDivElement, opts: ArtOptions): Artplayer {
-  const hls = isHls(opts.url)
+  const hls = opts.forceHls || isHls(opts.url)
   return new Artplayer({
     container: el,
     url: opts.url,

@@ -470,6 +470,14 @@ export interface PlayTarget {
   epIndex: number
 }
 
+/** 独立播放器窗口里的直播目标：频道名 + 全部线路（原始地址可能是房间号协议） */
+export interface LivePlayTarget {
+  title: string
+  group?: string
+  urls: Array<{ url: string; source: string }>
+  lineIndex: number
+}
+
 export interface SearchOptions {
   /** 限定站点 key，不传则搜索全部可用站点 */
   sites?: string[]

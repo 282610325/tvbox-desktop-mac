@@ -19,6 +19,7 @@ import type {
   LiveHealth,
   PlayerInfo,
   PlayTarget,
+  LivePlayTarget,
   ParseInfo,
   ParseResult,
   ParseTestResult,
@@ -37,7 +38,15 @@ const api = {
   settings: {
     get: (): Promise<AppSettings> => ipcRenderer.invoke(IPC.settingsGet),
     set: (patch: Partial<AppSettings>): Promise<AppSettings> =>
-      ipcRenderer.invoke(IPC.settingsSet, patch)
+      ipcRenderer.invoke(IPC.settingsSet, patch),
+    /** 任意窗口改了设置，其它窗口跟着更新 */
+    onChange: (cb: (settings: AppSettings) => void): (() => void) => {
+      const listener = (_e: unknown, settings: AppSettings): void => cb(settings)
+      ipcRenderer.on(IPC.settingsChanged, listener)
+      return () => {
+        ipcRenderer.removeListener(IPC.settingsChanged, listener)
+      }
+    }
   },
 
   sources: {
@@ -133,6 +142,11 @@ const api = {
     /** 打开 / 复用唯一的播放器窗口 */
     openWindow: (target: PlayTarget): Promise<void> =>
       ipcRenderer.invoke(IPC.playerOpenWindow, target),
+    /** 在同一个播放器窗口里播放直播频道 */
+    openLive: (target: LivePlayTarget): Promise<void> =>
+      ipcRenderer.invoke(IPC.playerOpenLive, target),
+    /** 播放器窗口启动时读一次当前直播目标 */
+    getLive: (): Promise<LivePlayTarget | null> => ipcRenderer.invoke(IPC.playerGetLive),
     closeWindow: (): Promise<void> => ipcRenderer.invoke(IPC.playerCloseWindow),
     /** 播放器窗口里监听主窗口发来的「切换视频」 */
     onNavigate: (cb: (target: PlayTarget) => void): (() => void) => {
@@ -140,6 +154,14 @@ const api = {
       ipcRenderer.on(IPC.playerNavigate, listener)
       return () => {
         ipcRenderer.removeListener(IPC.playerNavigate, listener)
+      }
+    },
+    /** 播放器窗口里监听主窗口发来的「切换直播频道」 */
+    onLive: (cb: (target: LivePlayTarget) => void): (() => void) => {
+      const listener = (_e: unknown, target: LivePlayTarget): void => cb(target)
+      ipcRenderer.on(IPC.playerLive, listener)
+      return () => {
+        ipcRenderer.removeListener(IPC.playerLive, listener)
       }
     }
   },

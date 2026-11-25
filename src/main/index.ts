@@ -10,6 +10,7 @@ import type {
   AppSettings,
   FavoriteItem,
   HistoryItem,
+  LivePlayTarget,
   PlayTarget,
   SearchOptions,
   SearchResponse
@@ -102,6 +103,8 @@ redirectUserData()
 let mainWindow: BrowserWindow | null = null
 /** 全局唯一的播放器窗口：主窗口继续浏览，点新视频只切换它的内容 */
 let playerWindow: BrowserWindow | null = null
+/** 播放器窗口当前放的是直播；点播时清空 */
+let liveTarget: LivePlayTarget | null = null
 
 /**
  * macOS 的菜单栏是应用的一部分：没有它，Cmd+C / Cmd+V / Cmd+Q 这些系统快捷键
@@ -192,31 +195,19 @@ function loadPlayerWindow(win: BrowserWindow, target: PlayTarget): Promise<void>
   })
 }
 
-/**
- * 打开或复用播放器窗口。
- * 窗口只有一个：主窗口继续搜索/浏览，点另一个视频时通过 IPC 让播放器窗口换片。
- */
-async function openPlayerWindow(target: PlayTarget): Promise<void> {
-  const clean: PlayTarget = {
-    siteKey: String(target?.siteKey ?? ''),
-    vodId: String(target?.vodId ?? ''),
-    lineIndex: Math.max(0, Number(target?.lineIndex) || 0),
-    epIndex: Math.max(0, Number(target?.epIndex) || 0)
-  }
-  if (!clean.siteKey || !clean.vodId) throw new Error('播放目标不完整')
+/** 直播窗口的初始 hash；真正的播放目标在渲染层挂载后通过 getLive 取 */
+function loadLiveWindow(win: BrowserWindow): Promise<void> {
+  const devUrl = process.env['ELECTRON_RENDERER_URL']
+  if (devUrl) return win.loadURL(`${devUrl}?player=1#/live`)
+  return win.loadFile(join(__dirname, '../renderer/index.html'), {
+    query: { player: '1' },
+    hash: '/live'
+  })
+}
 
-  if (playerWindow && !playerWindow.isDestroyed()) {
-    if (playerWindow.webContents.isLoading()) {
-      await loadPlayerWindow(playerWindow, clean)
-    } else {
-      playerWindow.webContents.send(IPC.playerNavigate, clean)
-    }
-    if (playerWindow.isMinimized()) playerWindow.restore()
-    playerWindow.show()
-    playerWindow.focus()
-    return
-  }
-
+/** 取出（或创建）唯一的播放器窗口 */
+function ensurePlayerWindow(): BrowserWindow {
+  if (playerWindow && !playerWindow.isDestroyed()) return playerWindow
   const win = new BrowserWindow({
     width: 1100,
     height: 720,
@@ -239,8 +230,68 @@ async function openPlayerWindow(target: PlayTarget): Promise<void> {
     if (playerWindow === win) playerWindow = null
   })
   win.on('ready-to-show', () => win.show())
-  await loadPlayerWindow(win, clean)
+  return win
+}
+
+function focusPlayerWindow(win: BrowserWindow): void {
+  if (win.isMinimized()) win.restore()
   win.show()
+  win.focus()
+}
+
+/**
+ * 打开或复用播放器窗口。
+ * 窗口只有一个：主窗口继续搜索/浏览，点另一个视频时通过 IPC 让播放器窗口换片。
+ */
+async function openPlayerWindow(target: PlayTarget): Promise<void> {
+  const clean: PlayTarget = {
+    siteKey: String(target?.siteKey ?? ''),
+    vodId: String(target?.vodId ?? ''),
+    lineIndex: Math.max(0, Number(target?.lineIndex) || 0),
+    epIndex: Math.max(0, Number(target?.epIndex) || 0)
+  }
+  if (!clean.siteKey || !clean.vodId) throw new Error('播放目标不完整')
+
+  liveTarget = null
+  const win = ensurePlayerWindow()
+  if (win.webContents.isLoading()) {
+    await loadPlayerWindow(win, clean)
+  } else {
+    win.webContents.send(IPC.playerNavigate, clean)
+  }
+  focusPlayerWindow(win)
+}
+
+/**
+ * 在同一个播放器窗口里播放直播。
+ * 和点播一样只换内容，不开第二个窗口；房间号线路由播放器窗口自己解析。
+ */
+async function openLiveWindow(target: LivePlayTarget): Promise<void> {
+  const urls = Array.isArray(target?.urls)
+    ? target.urls
+        .filter((u) => u && typeof u.url === 'string' && u.url.trim())
+        .map((u) => ({ url: u.url.trim(), source: String(u.source ?? '线路') }))
+    : []
+  if (!urls.length) throw new Error('直播目标不完整')
+
+  const clean: LivePlayTarget = {
+    title: String(target?.title ?? '直播'),
+    group: target?.group ? String(target.group) : undefined,
+    urls,
+    lineIndex: Math.min(Math.max(0, Number(target?.lineIndex) || 0), urls.length - 1)
+  }
+  liveTarget = clean
+
+  const existing = playerWindow && !playerWindow.isDestroyed() ? playerWindow : null
+  if (existing) {
+    // 加载中时事件可能早于渲染层注册监听，渲染层挂载后会主动 getLive 取一次
+    if (!existing.webContents.isLoading()) existing.webContents.send(IPC.playerLive, clean)
+    focusPlayerWindow(existing)
+    return
+  }
+  const win = ensurePlayerWindow()
+  await loadLiveWindow(win)
+  focusPlayerWindow(win)
 }
 
 function registerIpc(): void {
@@ -271,6 +322,10 @@ function registerIpc(): void {
         // 跟随系统代理时再探一次：代理软件没在跑就退回直连，避免整页黑图
         await ensureReachableProxy()
       }
+    }
+    // 主窗口和播放器窗口是两个渲染进程，设置变了要主动同步过去
+    for (const win of BrowserWindow.getAllWindows()) {
+      if (!win.isDestroyed()) win.webContents.send(IPC.settingsChanged, next)
     }
     return next
   })
@@ -383,6 +438,8 @@ function registerIpc(): void {
     openInPlayer(url, title, playerPath)
   )
   ipcMain.handle(IPC.playerOpenWindow, (_e, target: PlayTarget) => openPlayerWindow(target))
+  ipcMain.handle(IPC.playerOpenLive, (_e, target: LivePlayTarget) => openLiveWindow(target))
+  ipcMain.handle(IPC.playerGetLive, () => liveTarget)
   ipcMain.handle(IPC.playerCloseWindow, () => {
     playerWindow?.close()
   })

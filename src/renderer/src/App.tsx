@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { NavLink, Route, Routes, useNavigate, useParams } from 'react-router-dom'
+import type { LivePlayTarget } from '@shared/types'
 import { Sidebar } from '@/components/Sidebar'
 import { TopBar } from '@/components/TopBar'
 import { Toasts } from '@/components/Toasts'
@@ -11,6 +12,7 @@ import { Home } from '@/pages/Home'
 import { Search } from '@/pages/Search'
 import { Detail } from '@/pages/Detail'
 import { Player } from '@/pages/Player'
+import { LiveWindow } from '@/pages/LiveWindow'
 import { Live } from '@/pages/Live'
 import { Library } from '@/pages/Library'
 import { Sites } from '@/pages/Sites'
@@ -21,10 +23,14 @@ export default function App(): JSX.Element {
   const ready = useApp((s) => s.ready)
   const init = useApp((s) => s.init)
   const sources = useApp((s) => s.sources)
+  const syncSettings = useApp((s) => s.syncSettings)
 
   useEffect(() => {
     void init()
   }, [init])
+
+  // 主窗口和播放器窗口各自一份 store：任何一边改了设置，另一边跟着刷新
+  useEffect(() => window.api.settings.onChange(syncSettings), [syncSettings])
 
   if (!ready) {
     return (
@@ -76,14 +82,34 @@ export default function App(): JSX.Element {
 /** 播放器窗口里的路由：主窗口发来新目标时，直接在当前窗口换片 */
 function PlayerWindowRoutes(): JSX.Element {
   const navigate = useNavigate()
+  const [live, setLive] = useState<LivePlayTarget | null>(null)
 
   useEffect(() => {
-    return window.api.player.onNavigate((t) => {
+    let alive = true
+    // 窗口刚创建时事件可能早于监听注册，先主动取一次当前直播目标
+    void window.api.player.getLive().then((target) => {
+      if (alive && target) setLive(target)
+    })
+    const offLive = window.api.player.onLive((target) => {
+      setLive(target)
+      // 让窗口地址和实际内容一致（点播换过来时 hash 还是旧的 /play/...）
+      navigate('/live', { replace: true })
+    })
+    const offNavigate = window.api.player.onNavigate((t) => {
+      setLive(null)
       navigate(
         `/play/${encodeURIComponent(t.siteKey)}/${encodeURIComponent(t.vodId)}/${t.lineIndex}/${t.epIndex}`
       )
     })
+    return () => {
+      alive = false
+      offLive()
+      offNavigate()
+    }
   }, [navigate])
+
+  // 直播和点播共用同一个窗口：当前目标是直播时直接渲染直播播放器
+  if (live) return <LiveWindow live={live} />
 
   return (
     <Routes>
@@ -95,7 +121,7 @@ function PlayerWindowRoutes(): JSX.Element {
             <EmptyState
               icon={<Icon name="screen-off" size={26} />}
               title="没有正在播放的视频"
-              desc="回到主窗口点一个视频，就会在这里开始播放。"
+              desc="回到主窗口点一个视频或直播频道，就会在这里开始播放。"
             />
           </div>
         }
