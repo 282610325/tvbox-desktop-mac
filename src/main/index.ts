@@ -253,8 +253,10 @@ async function openPlayerWindow(target: PlayTarget): Promise<void> {
   if (!clean.siteKey || !clean.vodId) throw new Error('播放目标不完整')
 
   liveTarget = null
+  const reuse = Boolean(playerWindow && !playerWindow.isDestroyed())
   const win = ensurePlayerWindow()
-  if (win.webContents.isLoading()) {
+  // 新建的窗口还没开始加载，isLoading() 是 false，直接 send 会发到一个空白页
+  if (!reuse || win.webContents.isLoading()) {
     await loadPlayerWindow(win, clean)
   } else {
     win.webContents.send(IPC.playerNavigate, clean)
