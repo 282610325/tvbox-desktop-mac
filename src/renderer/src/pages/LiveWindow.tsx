@@ -200,7 +200,7 @@ export function LiveWindow({ live }: Props): JSX.Element {
   const externalUrl = resolved?.url || rawUrl
 
   return (
-    <div className="page page-player">
+    <div className="page page-player page-live">
       <div className="detail-head">
         <button
           type="button"

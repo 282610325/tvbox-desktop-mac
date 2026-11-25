@@ -1897,3 +1897,25 @@
 .player-window .page {
   max-width: none;
 }
+
+/*
+ * 直播页按窗口高度铺满。
+ * 画面默认是 16:9：窗口一放大，按宽度算出来的高度就会超过窗口，
+ * 底部被裁掉、整页还会多出一截滚动。改成占满头部和线路条之间的剩余高度，
+ * 视频自己按 contain 留黑边，窗口多大都不会溢出。
+ */
+.player-window .page-live {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+  padding-top: var(--gap);
+  padding-bottom: var(--gap);
+}
+
+.player-window .page-live .player-stage {
+  flex: 1 1 auto;
+  min-height: 0;
+  aspect-ratio: auto;
+  margin-top: var(--gap-s);
+}
