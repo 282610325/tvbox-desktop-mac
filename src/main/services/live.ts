@@ -198,12 +198,19 @@ export function collectLiveSources(parsed: ParsedConfig[]): Array<{ name: string
  * 内置频道：主播房间 + 实测可用的香港 / 澳门 / 台湾 / 海外频道。
  *
  * 房间号（huya://）要现解析（见 streamResolve.ts）。
- * 其余频道是 2026-11-25 从 iptv-org、atsushi444、imDazui、kimwang1978 等公开源里
- * 逐条实测过的：不只验证清单，还实际拉了清单里最新的一个分片确认是媒体流
- * （首字节 0x47 为 MPEG-TS，或 fMP4 的 ftyp 头）。按地区分 5 组：
+ * 其余频道是 2026-11-25/26 从 iptv-org、atsushi444、imDazui、kimwang1978 等公开源里
+ * 逐条实测过的。**能解码不算有效**：不少源会返回一段 NO SIGNAL 占位视频或循环播旧录像，
+ * readyState 一样能到 4。所以判定标准是三层：
+ *   1. master → media 清单能拉到，取最后一片确认首字节是 TS/fMP4；
+ *   2. 分片在持续推进（隔 20 秒再看 MEDIA-SEQUENCE 有没有涨）；
+ *   3. 抓一帧画面确认是真实播出的节目（有台标、跑马灯或当前时间）。
+ * 按地区分 4 组：
  * - 香港 / 澳门 / 台湾 / 海外：直连可播；
  * - 带「· 需代理」的组：必须走系统代理（本机 127.0.0.1:7892 实测通过），
  *   播放器窗口会自动切到代理并重试。
+ * 台湾组已剔除：epg.pw 那批（全部指向 nosignal_h264）、37.27.111.214 的两路
+ * （循环播放 2026-01/02 的旧录像）、111.0.115.129 中天（分片不再推进）、
+ * 大立电视（连不上）、38.64.72.148 的 TVBS-Asia（拉不出数据）。
  *
  * 写死在代码里跟着应用走：换订阅、清空配置源都不会丢。
  * 分组名「游戏赛事」会被 normalizeGroup 的别名规则并到公开源的「•游戏「赛事」」里。
@@ -246,14 +253,13 @@ TVB 娱乐新闻,http://php.jdshipin.com/TVOD/iptv.php?id=tvbylxw
 台湾,#genre#
 TVBS 新闻台,https://d2jc41c1shgcol.cloudfront.net/live/tvbsnewsqt/playlist.m3u8
 TVBS 新闻台,http://38.64.72.148/hls/modn/list/4027/playlist.m3u8
-TVBS-Asia,http://38.64.72.148/hls/modn/list/4005/playlist.m3u8
 台视新闻,http://38.64.72.148/hls/modn/list/4013/playlist.m3u8
 民视新闻,http://38.64.72.148/hls/modn/list/4012/playlist.m3u8
-东森超视,http://38.64.72.148/hls/modn/list/2013/chunklist1.m3u8
-中视,http://37.27.111.214:8080/live/7/hls.m3u8
+中视,http://38.64.72.148/hls/modn/list/2003/playlist.m3u8
 中视新闻,http://50.7.233.114:8278/zhongshinews_twn/playlist.m3u8
-民视闽南,http://37.27.111.214:8080/live/6/hls.m3u8
-中天新闻,http://111.0.115.129:8081/live/222ztxw.m3u8
+华视新闻,http://38.64.72.148/hls/modn/list/4025/playlist.m3u8
+东森超视,http://38.64.72.148/hls/modn/list/2013/chunklist1.m3u8
+东森美洲新闻,http://38.64.72.148/hls/modn/list/2016/playlist.m3u8
 非凡新闻,http://50.7.233.114:8278/feifannews_twn/playlist.m3u8
 世新综合,http://61.58.60.230:9319/live/49.m3u8
 国会频道1,http://61.58.60.230:9319/live/123.m3u8
@@ -262,24 +268,7 @@ TVBS-Asia,http://38.64.72.148/hls/modn/list/4005/playlist.m3u8
 美丽人生卫视,https://5ddce30eb4b55.streamlock.net/bltvhd/bltv1/playlist.m3u8
 唯心电视,https://mobile.ccdntech.com/transcoder/_definst_/vod164_Live/live/chunklist_w1177047531.m3u8
 TTV News,https://live.wcetv.com/hls/master-ttvnews.m3u8
-大立电视,http://www.dalitv.com.tw:4568/live/dali/index.m3u8
 DAAI TV,https://pull.daaiplus.com/live-DAAIPLUS/live-DAAIPLUS_HD.m3u8
-台湾 · 需代理,#genre#
-公视,https://epg.pw/stream/5c0663273403c40461cd1ae04cc5cfa4bb9d5d626270d5ec1754aeb554c3020b.m3u8
-华视,https://epg.pw/stream/2ef08642072574008f65939021951a59fe9fc71369c751393f40a1b2234e18c9.m3u8
-东森新闻,https://epg.pw/stream/d91376ed07fba14fec3772dd7bfcc266f213294ded9193f751afb3e7ca95f573.m3u8
-东森财经,https://epg.pw/stream/c4452be892906f85b59ac80ba36d1924380e404a65012937dc589180fd84ebe2.m3u8
-东森幼幼,https://epg.pw/stream/de717f629316508933939cc9d90e62b3a86d6377aff1ca390e1717e68c960eb4.m3u8
-东森综合,https://epg.pw/stream/d8efe6bedc4a8852aafaf7f5e2c0f72096e12f314da5ce617922dd6802352486.m3u8
-东森戏剧,https://epg.pw/stream/5dc124caeeb73ea07e5542cca877600b90f87a42e72b579e267528c3411b073f.m3u8
-民视,https://epg.pw/stream/446ff2630964ca5ddcb9f9cb6d4e1a5f2ca1dca875b2a4e1c462b9e5cf83b77d.m3u8
-三立新闻,https://epg.pw/stream/6b49e3faa38adda85abab446f032dc1e686baa0760a9cfa66e2df8fd6fe3b445.m3u8
-三立台湾,https://epg.pw/stream/79a263b6160e568f6d3cd91417334e5b08f1638bf5990da99c65d94589d35fb7.m3u8
-寰宇新闻,https://epg.pw/stream/eed37c9d7d82dc884bdfa04703da80f8bdb4e9910fbd2b396c8f72fb66093c75.m3u8
-纬来综合,https://epg.pw/stream/03ebc1a8a33908af343e09da79d9d8d08246222c793931c98184be5818a788a1.m3u8
-纬来体育,https://epg.pw/stream/65161be2ecd7c7b2e054dbac30922b2673b4eff6497b77c71bb81215aa826cc4.m3u8
-八大综合,https://epg.pw/stream/adb797f4658363759c5a408dfec1e091e7cfe712fe04afaa3b8d7670efef57e1.m3u8
-大爱二台,https://epg.pw/stream/1f3e158520af1be7f1dfdd5c56fe0393e54fe4bde8d8fbdfe04f74185117e9db.m3u8
 Hakka TV,https://h5cul1yar48um3t.wcetv.com/hls/hakkatv.m3u8
 Good TV,https://live.streamingfast.net/osmflivech1.m3u8
 Good 2,https://live.streamingfast.net/osmflivech2.m3u8
