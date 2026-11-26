@@ -195,13 +195,14 @@ export function collectLiveSources(parsed: ParsedConfig[]): Array<{ name: string
 }
 
 /**
- * 内置频道：主播房间 + 实测可用的港澳台 / 海外频道。
+ * 内置频道：主播房间 + 实测可用的香港 / 澳门 / 台湾 / 海外频道。
  *
  * 房间号（huya://）要现解析（见 streamResolve.ts）。
- * 其余频道是 2026-11-25 从 iptv-org、myIPTV 等公开 m3u 里逐条实测过的：
- * 不只验证清单，还实际拉了清单里最新的一个 ts 分片确认是媒体流。分两类：
- * - 普通分组：直连就能播；
- * - 「（需代理）」分组：必须走系统代理（本机 127.0.0.1:7892 实测通过），
+ * 其余频道是 2026-11-25 从 iptv-org、atsushi444、imDazui、kimwang1978 等公开源里
+ * 逐条实测过的：不只验证清单，还实际拉了清单里最新的一个分片确认是媒体流
+ * （首字节 0x47 为 MPEG-TS，或 fMP4 的 ftyp 头）。按地区分 5 组：
+ * - 香港 / 澳门 / 台湾 / 海外：直连可播；
+ * - 带「· 需代理」的组：必须走系统代理（本机 127.0.0.1:7892 实测通过），
  *   播放器窗口会自动切到代理并重试。
  *
  * 写死在代码里跟着应用走：换订阅、清空配置源都不会丢。
@@ -209,18 +210,79 @@ export function collectLiveSources(parsed: ParsedConfig[]): Array<{ name: string
  */
 export const BUILTIN_LIVE = `游戏赛事,#genre#
 danking直播,huya://10188
-港澳台,#genre#
+香港,#genre#
+有线新闻,http://cm61-10-2-143.hkcable.com.hk/live_freedirect/freehd209_h.live/playlist.m3u8
+环球电视,http://utv1.hqtvzb.com:9999/hls/world.m3u8
 Pet Club TV,https://petclub-samsungaus.amagi.tv/playlist.m3u8
-TTV News,https://live.wcetv.com/hls/master-ttvnews.m3u8
+香港 · 需代理,#genre#
+翡翠台,https://cdn6.cc.cd/163189/fct
+翡翠台,http://r.jdshipin.com/qClQf
+翡翠台,http://php.jdshipin.com:8880/TVOD/iptv.php?id=j1
+明珠台,https://cdn6.cc.cd/163189/mzt
+明珠台,http://r.jdshipin.com/GeWKr?id=mzt720
+TVB 无线新闻,https://h5cdn3.kylintv.tv/live/tvbnews_iphone.m3u8
+TVB 无线新闻,http://r.jdshipin.com/CkuBd
+TVB Plus,http://r.jdshipin.com/Nr5jq
+TVB星河,http://r.jdshipin.com/sXuuD
+华丽翡翠台,http://r.jdshipin.com/thuYX
+凤凰中文,https://cdn6.cc.cd/163189/fhzw
+凤凰中文,http://r.jdshipin.com/cCCzW
+凤凰资讯,https://cdn6.cc.cd/163189/fhzx
+凤凰资讯,http://r.jdshipin.com/0Rp07
+凤凰香港,https://cdn6.cc.cd/163189/fhhk
+凤凰香港,http://r.jdshipin.com/yDoTN
+HOY TV,http://r.jdshipin.com/sFw4S
+RTHK TV 31,http://php.jdshipin.com:8880/TVOD/iptv.php?id=rthk31
+RTHK TV 32,http://php.jdshipin.com:8880/TVOD/iptv.php?id=rthk32
+香港国际财经台,http://uc6.i-cable.com/live_freedirect/opentvhd002_h.live/playlist.m3u8
+TVB 娱乐新闻,http://php.jdshipin.com/TVOD/iptv.php?id=tvbylxw
+美亚 C+,http://ottproxy2.ist.ooo/livehls/MOB-U1-NO/03.m3u8
+澳门 · 需代理,#genre#
+澳门莲花,https://cdn6.cc.cd/163189/amlh
+澳门莲花,https://cdn.qd.je/163189/amlh
+澳视澳门,http://r.jdshipin.com/n2YZI
+澳视卫星,http://r.jdshipin.com/QFhCq
+澳门卫视,http://php.jdshipin.com:8880/TVOD/iptv.php?id=as
+台湾,#genre#
+TVBS 新闻台,https://d2jc41c1shgcol.cloudfront.net/live/tvbsnewsqt/playlist.m3u8
+TVBS 新闻台,http://38.64.72.148/hls/modn/list/4027/playlist.m3u8
 TVBS-Asia,http://38.64.72.148/hls/modn/list/4005/playlist.m3u8
-Taiwan Indigenous TV,https://streamipcfapp.akamaized.net/live/_definst_/live_720/key_b1500.m3u8
-CGNTV Chinese,https://d3e05csss9c272.cloudfront.net/out/v1/f0bf71c57581470fb9379f603e8f5d83/CGNWebLiveCN.m3u8
-Beautiful Life TV,https://5ddce30eb4b55.streamlock.net/bltvhd/bltv1/playlist.m3u8
-WXTV,https://mobile.ccdntech.com/transcoder/_definst_/vod164_Live/live/chunklist_w1177047531.m3u8
-东森超视,http://38.64.72.148/hls/modn/list/2013/chunklist1.m3u8
+台视新闻,http://38.64.72.148/hls/modn/list/4013/playlist.m3u8
 民视新闻,http://38.64.72.148/hls/modn/list/4012/playlist.m3u8
+东森超视,http://38.64.72.148/hls/modn/list/2013/chunklist1.m3u8
+中视,http://37.27.111.214:8080/live/7/hls.m3u8
+中视新闻,http://50.7.233.114:8278/zhongshinews_twn/playlist.m3u8
+民视闽南,http://37.27.111.214:8080/live/6/hls.m3u8
+中天新闻,http://111.0.115.129:8081/live/222ztxw.m3u8
+非凡新闻,http://50.7.233.114:8278/feifannews_twn/playlist.m3u8
+世新综合,http://61.58.60.230:9319/live/49.m3u8
+国会频道1,http://61.58.60.230:9319/live/123.m3u8
+国会频道2,http://61.58.60.230:9319/live/124.m3u8
+人间卫视,http://61.216.67.119:1935/bltvhd/bltv1/chunklist_w1266569526.m3u8
+美丽人生卫视,https://5ddce30eb4b55.streamlock.net/bltvhd/bltv1/playlist.m3u8
+唯心电视,https://mobile.ccdntech.com/transcoder/_definst_/vod164_Live/live/chunklist_w1177047531.m3u8
+TTV News,https://live.wcetv.com/hls/master-ttvnews.m3u8
 大立电视,http://www.dalitv.com.tw:4568/live/dali/index.m3u8
 DAAI TV,https://pull.daaiplus.com/live-DAAIPLUS/live-DAAIPLUS_HD.m3u8
+台湾 · 需代理,#genre#
+公视,https://epg.pw/stream/5c0663273403c40461cd1ae04cc5cfa4bb9d5d626270d5ec1754aeb554c3020b.m3u8
+华视,https://epg.pw/stream/2ef08642072574008f65939021951a59fe9fc71369c751393f40a1b2234e18c9.m3u8
+东森新闻,https://epg.pw/stream/d91376ed07fba14fec3772dd7bfcc266f213294ded9193f751afb3e7ca95f573.m3u8
+东森财经,https://epg.pw/stream/c4452be892906f85b59ac80ba36d1924380e404a65012937dc589180fd84ebe2.m3u8
+东森幼幼,https://epg.pw/stream/de717f629316508933939cc9d90e62b3a86d6377aff1ca390e1717e68c960eb4.m3u8
+东森综合,https://epg.pw/stream/d8efe6bedc4a8852aafaf7f5e2c0f72096e12f314da5ce617922dd6802352486.m3u8
+东森戏剧,https://epg.pw/stream/5dc124caeeb73ea07e5542cca877600b90f87a42e72b579e267528c3411b073f.m3u8
+民视,https://epg.pw/stream/446ff2630964ca5ddcb9f9cb6d4e1a5f2ca1dca875b2a4e1c462b9e5cf83b77d.m3u8
+三立新闻,https://epg.pw/stream/6b49e3faa38adda85abab446f032dc1e686baa0760a9cfa66e2df8fd6fe3b445.m3u8
+三立台湾,https://epg.pw/stream/79a263b6160e568f6d3cd91417334e5b08f1638bf5990da99c65d94589d35fb7.m3u8
+寰宇新闻,https://epg.pw/stream/eed37c9d7d82dc884bdfa04703da80f8bdb4e9910fbd2b396c8f72fb66093c75.m3u8
+纬来综合,https://epg.pw/stream/03ebc1a8a33908af343e09da79d9d8d08246222c793931c98184be5818a788a1.m3u8
+纬来体育,https://epg.pw/stream/65161be2ecd7c7b2e054dbac30922b2673b4eff6497b77c71bb81215aa826cc4.m3u8
+八大综合,https://epg.pw/stream/adb797f4658363759c5a408dfec1e091e7cfe712fe04afaa3b8d7670efef57e1.m3u8
+大爱二台,https://epg.pw/stream/1f3e158520af1be7f1dfdd5c56fe0393e54fe4bde8d8fbdfe04f74185117e9db.m3u8
+Hakka TV,https://h5cul1yar48um3t.wcetv.com/hls/hakkatv.m3u8
+Good TV,https://live.streamingfast.net/osmflivech1.m3u8
+Good 2,https://live.streamingfast.net/osmflivech2.m3u8
 海外,#genre#
 CNN,https://tvsen6.aynaott.com/cnn/index.m3u8
 CNN en Espanol,https://amg00803-cnnfast-amg00803c3-lg-es-5477.playouts.now.amagi.tv/playlist.m3u8
@@ -245,33 +307,7 @@ BBS TV,http://bbstv.clouducs.com:1935/bbstv-live/livestream/playlist.m3u8
 BTN TV,https://btn.nowcdn.co.kr/btn/btnlive2m/playlist.m3u8
 Gugak TV,https://mgugaklive.nowcdn.co.kr/gugakvideo/gugakvideo.stream/playlist.m3u8
 Arirang TV HD,https://freem3u.xyz/api/live/play.m3u8?vid=111
-港澳台 · 需代理,#genre#
-RTHK TV 31,http://php.jdshipin.com:8880/TVOD/iptv.php?id=rthk31
-RTHK TV 32,http://php.jdshipin.com:8880/TVOD/iptv.php?id=rthk32
-TVB 无线新闻,http://r.jdshipin.com/CkuBd
-明珠台,http://r.jdshipin.com/GeWKr?id=mzt720
-TVB 娱乐新闻,http://php.jdshipin.com/TVOD/iptv.php?id=tvbylxw
-翡翠台,http://r.jdshipin.com/qClQf
-翡翠台,http://php.jdshipin.com:8880/TVOD/iptv.php?id=j1
-华丽翡翠台,http://r.jdshipin.com/thuYX
-凤凰中文,http://r.jdshipin.com/cCCzW
-凤凰资讯,http://r.jdshipin.com/0Rp07
-凤凰香港,http://r.jdshipin.com/yDoTN
-TVB Plus,http://r.jdshipin.com/Nr5jq
-TVB星河,http://r.jdshipin.com/sXuuD
-ViuTV,http://php.jdshipin.com/TVOD/iptv.php?id=viutv
-HOY TV,http://r.jdshipin.com/sFw4S
-澳门卫视,http://php.jdshipin.com:8880/TVOD/iptv.php?id=as
-澳视澳门,http://r.jdshipin.com/n2YZI
-澳视卫星,http://r.jdshipin.com/QFhCq
-香港国际财经台,http://uc6.i-cable.com/live_freedirect/opentvhd002_h.live/playlist.m3u8
-TVBS 新闻台,http://61.221.215.25:8800/hls/9/index.m3u8
-三立戏剧,http://61.221.215.25:8800/hls/41/index.m3u8
-Hakka TV,https://h5cul1yar48um3t.wcetv.com/hls/hakkatv.m3u8
-Good TV,https://live.streamingfast.net/osmflivech1.m3u8
-Good 2,https://live.streamingfast.net/osmflivech2.m3u8
-NTD TV,https://live.ntdtv.com/aplive200/playlist.m3u8
-Supreme Master TV,https://lbs-us1.suprememastertv.com/720p.m3u8
+CGNTV 中文,https://d3e05csss9c272.cloudfront.net/out/v1/f0bf71c57581470fb9379f603e8f5d83/CGNWebLiveCN.m3u8
 海外 · 需代理,#genre#
 MTV Japan,http://103.255.250.188:5002/cs18.m3u8?channel=zhongying&gid=cs18&token=guoziyun
 Cartoon Network Japan,http://103.255.250.188:5002/cs25.m3u8?channel=zhongying&gid=cs25&token=guoziyun
@@ -288,7 +324,8 @@ DW 英语,https://dwamdstream102.akamaized.net/hls/live/2015525/dwstream102/inde
 EBS 2TV,https://ebsonair.ebs.co.kr/ebs2familypc/familypc1m/playlist.m3u8
 EBS English,https://ebsonair.ebs.co.kr/plus3familypc/familypc1m/playlist.m3u8
 EBS Plus 1,https://ebsonair.ebs.co.kr/plus1familypc/familypc1m/playlist.m3u8
-UBC 蔚山,https://stream.ubc.co.kr/hls/ubctvstream/index.m3u8
+NTD TV,https://live.ntdtv.com/aplive200/playlist.m3u8
+Supreme Master TV,https://lbs-us1.suprememastertv.com/720p.m3u8
 `
 
 /** 内置频道始终算一个直播源 */
