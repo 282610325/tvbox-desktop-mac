@@ -718,6 +718,112 @@
   flex-wrap: wrap;
 }
 
+/* ---------- 演员作品墙 ---------- */
+/* 搜索框输演员名时铺在结果上方：采集站搜不到演员，这里给作品名当入口 */
+.celebrity-panel {
+  margin-top: var(--gap-l);
+  padding: var(--gap-l);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-l);
+  background: var(--bg-2);
+}
+
+.celebrity-head {
+  display: flex;
+  align-items: center;
+  gap: var(--gap);
+  margin-bottom: var(--gap-l);
+}
+
+.poster-celebrity {
+  width: 64px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.celebrity-intro {
+  min-width: 0;
+}
+
+.celebrity-name {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.celebrity-en {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-3);
+}
+
+.celebrity-sub {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.celebrity-works {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: var(--gap);
+}
+
+.celebrity-work {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.celebrity-work:hover .poster {
+  border-color: var(--accent-border);
+  box-shadow: var(--shadow-2);
+}
+
+.celebrity-work-title {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.celebrity-work-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 14px;
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.celebrity-work-score {
+  font-family: var(--font-num);
+  font-weight: 600;
+  color: var(--warn);
+}
+
+.celebrity-more {
+  margin-top: var(--gap);
+}
+
+.celebrity-sites {
+  margin-top: var(--gap-l);
+}
+
 /* ---------- 搜索页脚注 ---------- */
 .failed-sites {
   margin-top: var(--gap-xl);

@@ -27,6 +27,10 @@ export const IPC = {
   searchCancel: 'search:cancel',
   /** 主进程 → 渲染进程：每完成一个站点推一次 */
   searchProgress: 'search:progress',
+  /** 演员名 → 作品列表（搜索框输入演员名时用） */
+  celebrityLookup: 'celebrity:lookup',
+  /** 点「展开全部」时把该影人的作品补齐（接口一页 50 条，要翻页） */
+  celebrityWorks: 'celebrity:works',
 
   detailGet: 'detail:get',
 

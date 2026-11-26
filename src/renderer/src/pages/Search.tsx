@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { EmptyState } from '@/components/EmptyState'
+import { Poster } from '@/components/Poster'
 import { VodCard } from '@/components/VodCard'
 import { Icon } from '@/components/icons'
 import { mergeResults, useApp } from '@/store/useApp'
 import { normalizeName } from '@/utils/normalize'
-import type { CategoryBucket } from '@shared/types'
+import type { CategoryBucket, Celebrity, CelebrityWork } from '@shared/types'
 
 export function Search(): JSX.Element {
   const [params, setParams] = useSearchParams()
@@ -27,11 +28,51 @@ export function Search(): JSX.Element {
   const [siteFilter, setSiteFilter] = useState<string | null>(null)
   /** 已经发起过的关键词，避免 URL 变化重复触发 */
   const lastRun = useRef('')
+  /** 搜索词恰好是一个演员名时，这里放他的作品墙 */
+  const [celebrity, setCelebrity] = useState<Celebrity | null>(null)
+  const [celebrityLoading, setCelebrityLoading] = useState(false)
+  /** 首屏只拿 50 部；点「展开全部」后把补齐的整份放这里 */
+  const [allWorks, setAllWorks] = useState<CelebrityWork[] | null>(null)
+  const [worksLoading, setWorksLoading] = useState(false)
+  const [workOpen, setWorkOpen] = useState(false)
+  /** 认成演员时，站点那边模糊搜出来的结果先收起来，想看再点开 */
+  const [showSiteResults, setShowSiteResults] = useState(false)
 
   const usable = useMemo(
     () => sites.filter((s) => s.enabled && s.searchable && !s.unsupported),
     [sites]
   )
+
+  // 采集站只按片名建索引，演员名直接搜是 0 结果。所以每次搜索都顺手查一次
+  // 「这个名字是不是演员」，是的话把作品墙铺在结果上方，点作品名再走普通搜索。
+  useEffect(() => {
+    setWorkOpen(false)
+    setShowSiteResults(false)
+    setAllWorks(null)
+    setWorksLoading(false)
+    if (!wdParam || !usable.length) {
+      setCelebrity(null)
+      setCelebrityLoading(false)
+      return
+    }
+    let alive = true
+    setCelebrity(null)
+    setCelebrityLoading(true)
+    void window.api.celebrity
+      .lookup(wdParam)
+      .then((result) => {
+        if (alive) setCelebrity(result)
+      })
+      .catch(() => {
+        /* 查不到就按普通关键词处理，不打扰用户 */
+      })
+      .finally(() => {
+        if (alive) setCelebrityLoading(false)
+      })
+    return () => {
+      alive = false
+    }
+  }, [wdParam, usable.length])
 
   // 顶部搜索框进来时自动开搜；没有关键词时进分类目录
   useEffect(() => {
@@ -108,6 +149,35 @@ export function Search(): JSX.Element {
 
   const visible = siteFilter ? merged.filter((v) => v.allSiteKeys.includes(siteFilter)) : merged
 
+  /** 作品墙当前展示的集合：展平全部之后用补齐的那一份 */
+  const workList = allWorks ?? celebrity?.works ?? []
+
+  /**
+   * 展开 / 收起作品墙。
+   * 首屏只有接口第一页（50 部），第一次展开要把剩下的页补齐，
+   * 否则「共 131 部」却只能看到 50 部，看起来就像结果被截断了。
+   */
+  async function toggleAllWorks(): Promise<void> {
+    if (workOpen) {
+      setWorkOpen(false)
+      return
+    }
+    if (allWorks || !celebrity) {
+      setWorkOpen(true)
+      return
+    }
+    setWorksLoading(true)
+    try {
+      const works = await window.api.celebrity.works(celebrity.id)
+      if (works.length) setAllWorks(works)
+    } catch {
+      /* 拉不到就把首屏那 50 部展开出来 */
+    } finally {
+      setWorksLoading(false)
+      setWorkOpen(true)
+    }
+  }
+
   const okSites = source.filter((r) => r.ok)
   const failedSites = source.filter((r) => !r.ok)
   const hitCount = okSites.reduce((sum, r) => sum + r.list.length, 0)
@@ -160,7 +230,11 @@ export function Search(): JSX.Element {
         <div>
           <div className="page-title">{isBrowsing ? '分类浏览' : '聚合搜索'}</div>
           <div className="page-sub">
-            {isBrowsing ? <BrowseSub /> : (
+            {isBrowsing ? (
+              <BrowseSub />
+            ) : celebrity && !showSiteResults ? (
+              `已识别为演员「${celebrity.name}」· 共 ${celebrity.total} 部作品 · 点作品名去找资源`
+            ) : (
               `「${search.wd}」· ${okSites.length}/${progressTotal} 个站点有响应 · 命中 ${hitCount} 条 · 合并后 ${merged.length} 部${
                 hidden ? ` · 已挡掉 ${hidden} 条解说` : ''
               }`
@@ -220,7 +294,66 @@ export function Search(): JSX.Element {
 
       {usable.length && isBrowsing && browse.bucket ? <SubBar /> : null}
 
-      {usable.length && !isBrowsing ? (
+      {!isBrowsing && celebrity ? (
+        <section className="celebrity-panel">
+          <div className="celebrity-head">
+            <Poster src={celebrity.avatar} name={celebrity.name} className="poster-celebrity" eager />
+            <div className="celebrity-intro">
+              <div className="celebrity-name">
+                {celebrity.name}
+                {celebrity.enName ? <span className="celebrity-en">{celebrity.enName}</span> : null}
+              </div>
+              <div className="celebrity-sub">
+                共 {celebrity.total} 部作品
+                {celebrity.total > workList.length
+                  ? `，这里列出前 ${workList.length} 部`
+                  : ''}
+                {' · '}点作品名直接去找资源
+              </div>
+            </div>
+          </div>
+          <div className="celebrity-works">
+            {(workOpen ? workList : workList.slice(0, 18)).map((w, i) => (
+              <button
+                key={`${w.title}-${w.year}-${i}`}
+                type="button"
+                className="celebrity-work"
+                title={w.roles.length ? `${w.title}\n${w.roles.join('、')}` : w.title}
+                onClick={() => setParams({ wd: w.title })}
+              >
+                <Poster src={w.pic} name={w.title} eager />
+                <div className="celebrity-work-title">{w.title}</div>
+                <div className="celebrity-work-meta">
+                  {w.year ? <span>{w.year}</span> : null}
+                  {w.rating ? <span className="celebrity-work-score">{w.rating}</span> : null}
+                </div>
+              </button>
+            ))}
+          </div>
+          {workList.length > 18 ? (
+            <button
+              type="button"
+              className="btn btn-sm celebrity-more"
+              disabled={worksLoading}
+              onClick={toggleAllWorks}
+            >
+              {workOpen ? '收起' : worksLoading ? '正在加载全部作品…' : `展开全部 ${celebrity.total} 部`}
+            </button>
+          ) : null}
+        </section>
+      ) : null}
+
+      {celebrity && !showSiteResults && (search.running || merged.length > 0) ? (
+        <div className="celebrity-sites">
+          <button type="button" className="btn btn-sm" onClick={() => setShowSiteResults(true)}>
+            {search.running
+              ? `正在搜索片名资源 ${search.done}/${progressTotal}`
+              : `另外看看按片名搜到的 ${merged.length} 部`}
+          </button>
+        </div>
+      ) : null}
+
+      {usable.length && !isBrowsing && (!celebrity || showSiteResults) ? (
         <div className="chips" style={{ marginBottom: 14 }}>
           <button
             type="button"
@@ -246,7 +379,7 @@ export function Search(): JSX.Element {
         </div>
       ) : null}
 
-      {usable.length && (busy || source.length) ? (
+      {usable.length && (busy || source.length) && (!celebrity || showSiteResults) ? (
         visible.length ? (
           <div className="poster-grid">
             {visible.map((vod) => (
@@ -261,7 +394,11 @@ export function Search(): JSX.Element {
                 ? '还有站点在返回数据，结果会陆续出现。'
                 : isBrowsing
                   ? '换个分类试试，或者到「影视源」页测试站点是否可用。'
-                  : '公开采集接口只按片名搜索，演员名通常搜不到；换成作品名试试，或检查站点是否可用。'
+                  : celebrity
+                    ? `采集站只按片名建索引，搜不到演员名；点上面的作品，就会去搜那部片。`
+                    : celebrityLoading
+                      ? '正在按演员名查作品…'
+                      : '没有匹配结果，换个片名试试，或检查站点是否可用。'
             }
           />
         )

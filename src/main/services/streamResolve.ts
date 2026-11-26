@@ -85,6 +85,13 @@ const REFERER_RULES: Array<{ re: RegExp; referer: string; origin: string }> = [
     re: /(douyin|douyincdn|bytefcdn|volccdn|pstatp|ixigua|bytedance|byteimg|snssdk)\.com/i,
     referer: 'https://live.douyin.com/',
     origin: 'https://live.douyin.com'
+  },
+  // 搜索页「演员作品墙」的海报。豆瓣图床在没有 Referer 时直接回 418，
+  // 而 file:// 页面发出的图片请求恰好没有 Referer，所以这里统一补上。
+  {
+    re: /(doubanio|douban)\.com/i,
+    referer: 'https://movie.douban.com/',
+    origin: 'https://movie.douban.com'
   }
 ]
 

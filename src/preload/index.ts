@@ -8,6 +8,8 @@ import type {
   AppSettings,
   CategoryBucket,
   CategoryPage,
+  Celebrity,
+  CelebrityWork,
   ConfigSource,
   SourcePresetInfo,
   FavoriteItem,
@@ -91,6 +93,14 @@ const api = {
   detail: {
     get: (siteKey: string, vodId: string): Promise<VodDetail> =>
       ipcRenderer.invoke(IPC.detailGet, siteKey, vodId)
+  },
+
+  /** 演员名 → 作品列表。查不到返回 null，搜索页按普通关键词处理 */
+  celebrity: {
+    lookup: (name: string): Promise<Celebrity | null> =>
+      ipcRenderer.invoke(IPC.celebrityLookup, name),
+    /** 点「展开全部」时补齐该影人的全部作品 */
+    works: (id: string): Promise<CelebrityWork[]> => ipcRenderer.invoke(IPC.celebrityWorks, id)
   },
 
   category: {

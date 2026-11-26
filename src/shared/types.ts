@@ -219,6 +219,33 @@ export interface VodPage {
   list: Vod[]
 }
 
+/**
+ * 影人作品：把「演员名」翻译成「作品名」用。
+ *
+ * 采集站只按片名建索引，搜索框直接输演员名基本是 0 结果。搜索页会额外查一次
+ * 影人作品，用户点作品名再走正常的聚合搜索，效果和电视版的按演员搜索一致。
+ */
+export interface CelebrityWork {
+  title: string
+  year: string
+  /** movie / tv */
+  type: string
+  rating: string
+  pic: string
+  /** 在该片中的身份，例如「演员 (饰 梅长苏)」 */
+  roles: string[]
+}
+
+export interface Celebrity {
+  id: string
+  name: string
+  enName: string
+  avatar: string
+  /** 参与的作品总数；works 里只带回前若干部 */
+  total: number
+  works: CelebrityWork[]
+}
+
 export interface LiveChannel {
   name: string
   url: string

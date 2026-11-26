@@ -43,6 +43,7 @@ import {
 } from './services/parse'
 import type { ResolveOptions } from './services/parse'
 import { cancelSearch, searchAll } from './services/search'
+import { lookupCelebrity, listCelebrityWorks } from './services/celebrity'
 import { DEFAULT_SETTINGS, getSettings, saveSettings } from './services/settings'
 import { getSites, setSiteEnabled, setSitesEnabled, testSite } from './services/sites'
 import { addPreset, ensureBundledSources, listPresets, refreshBundledPresets } from './services/presets'
@@ -405,6 +406,9 @@ function registerIpc(): void {
   ipcMain.handle(IPC.searchCancel, () => {
     cancelSearch()
   })
+
+  ipcMain.handle(IPC.celebrityLookup, (_e, name: string) => lookupCelebrity(name))
+  ipcMain.handle(IPC.celebrityWorks, (_e, id: string) => listCelebrityWorks(id))
 
   ipcMain.handle(IPC.detailGet, (_e, siteKey: string, vodId: string) =>
     getVodDetail(siteKey, vodId)
